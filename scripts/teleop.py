@@ -48,7 +48,10 @@ space key, s : force stop
 CTRL-C to quit
 """
 lin_vel = 0.1
-ang_vel = 0.01
+#lin_to_ang_prop = .1/0.0035
+#ang_vel = lin_vel/lin_to_ang_prop
+ang_vel = 0.0035
+
 def getKey():
     tty.setraw(sys.stdin.fileno())
     rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
