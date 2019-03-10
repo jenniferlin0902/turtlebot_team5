@@ -16,11 +16,7 @@ K3 = 0.8
 
 # tells the robot to stay still
 # if it doesn't get messages within that time period
-<<<<<<< HEAD
-TIMEOUT = 1.0
-=======
 TIMEOUT = np.inf
->>>>>>> new_course_project
 
 # maximum velocity
 V_MAX = 0.2
@@ -52,17 +48,9 @@ class PoseController:
         self.theta = 0.0
 
         # goal state
-<<<<<<< HEAD
-        self.x_g = 0.0
-        self.y_g = 0.0
-        self.theta_g = 0.0
-
-        
-=======
         self.x_g = None
         self.y_g = None
         self.theta_g = None        
->>>>>>> new_course_project
 
         # time last pose command was received
         self.cmd_pose_time = rospy.get_rostime()
@@ -77,20 +65,10 @@ class PoseController:
         # create a subscriber that receives Pose2D messages and
         # calls cmd_pose_callback. It should subscribe to '/cmd_pose'
 
-<<<<<<< HEAD
-
-
-
-        ######### END OF YOUR CODE ##########
-
-
-
-=======
         rospy.Subscriber('/cmd_pose', Pose2D, self.cmd_pose_callback)
 
         ######### END OF YOUR CODE ##########
 
->>>>>>> new_course_project
     def gazebo_callback(self, data):
         if "turtlebot3_burger" in data.name:
             pose = data.pose[data.name.index("turtlebot3_burger")]
@@ -108,27 +86,17 @@ class PoseController:
     def cmd_pose_callback(self, data):
         ######### YOUR CODE HERE ############
         # fill out cmd_pose_callback
-<<<<<<< HEAD
-
-
-
-
-=======
         self.x_g = data.x
         self.y_g = data.y
         self.theta_g = data.theta
->>>>>>> new_course_project
         ######### END OF YOUR CODE ##########
         self.cmd_pose_time = rospy.get_rostime()
 
 
     def get_ctrl_output(self):
-<<<<<<< HEAD
-=======
         if self.x_g is None:
             return None
 
->>>>>>> new_course_project
         """ runs a simple feedback pose controller """
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
             # if you are not using gazebo, your need to use a TF look-up to find robot's states
@@ -149,10 +117,6 @@ class PoseController:
             # robot's desired state is self.x_g, self.y_g, self.theta_g
             # fill out cmd_x_dot = ... cmd_theta_dot = ...
 
-<<<<<<< HEAD
-
-
-=======
             rel_coords = np.array([self.x-self.x_g, self.y-self.y_g])
             R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
             rel_coords_rot = np.dot(R,rel_coords)
@@ -179,7 +143,6 @@ class PoseController:
                 # Apply saturation limits
                 cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
                 cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
->>>>>>> new_course_project
 
 
             ######### END OF YOUR CODE ##########
@@ -200,12 +163,8 @@ class PoseController:
         rate = rospy.Rate(10) # 10 Hz
         while not rospy.is_shutdown():
             ctrl_output = self.get_ctrl_output()
-<<<<<<< HEAD
-            self.pub.publish(ctrl_output)
-=======
             if ctrl_output is not None:
                 self.pub.publish(ctrl_output)
->>>>>>> new_course_project
             rate.sleep()
 
 if __name__ == '__main__':

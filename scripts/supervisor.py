@@ -45,10 +45,6 @@ class Mode(Enum):
 
 print "supervisor settings:\n"
 print "use_gazebo = %s\n" % use_gazebo
-<<<<<<< HEAD
-print "rviz = %s\n" % rviz
-=======
->>>>>>> new_course_project
 print "mapping = %s\n" % mapping
 
 class Supervisor:
