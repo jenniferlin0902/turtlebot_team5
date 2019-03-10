@@ -1,12 +1,14 @@
-<launch>
+<launch> 
   <rosparam param="sim">false</rosparam>
   <rosparam param="map">true</rosparam>
+  <rosparam param="use_tf">false</rosparam>
   <rosparam param="rviz">true</rosparam>
 
-  <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="log">
+
+  <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="screen">
     <param name="base_frame" value="base_footprint"/>
     <param name="odom_frame" value="odom"/>
-    <param name="map_update_interval" value="1.0"/>
+    <param name="map_update_interval" value="2.0"/>
     <param name="maxUrange" value="4.0"/>
     <param name="minimumScore" value="100"/>
     <param name="linearUpdate" value="0.2"/>
@@ -38,9 +40,10 @@
   </node>
 
 
-  <!-- TO DO: FIX CONTROLLER/PARAMS -->
-  <node pkg="turtlebot_team5" type="supervisor.py" name="turtlebot_supervisor" output="screen"/>
-  <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" />
-  <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" />
-  <!--<node pkg="turtlebot_team5" type="detector.py" name="turtlebot_detector" />-->
+  <node pkg="asl_turtlebot" type="detector.py" name="turtlebot_detector" />
+  <node pkg="asl_turtlebot" type="pose_controller.py" name="turtlebot_pose_controller" />
+  <node pkg="asl_turtlebot" type="gazebo_plot.py" name="gazebo_plot" />
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find asl_turtlebot)/rviz/signs_gmapping.rviz"/>
+
 </launch>
