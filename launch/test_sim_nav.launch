@@ -11,14 +11,14 @@
   <rosparam param="use_tf">false</rosparam>
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find asl_turtlebot)/world/project_city.world"/>
+    <arg name="world_name" value="$(find turtlebot_team5)/world/project_city.world"/>
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
     <arg name="debug" value="false"/>
     <arg name="gui" value="$(arg gui)"/>
   </include>
 
-  <param name="robot_description" command="$(find xacro)/xacro.py $(find asl_turtlebot)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find turtlebot_team5)/urdf/turtlebot3_$(arg model).urdf.xacro" />
 
   <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3_burger -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
 
@@ -26,10 +26,10 @@
     <param name="publish_frequency" type="double" value="10.0" />
   </node>
 
-  <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="screen">
+  <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="log">
     <param name="base_frame" value="base_footprint"/>
     <param name="odom_frame" value="odom"/>
-    <param name="map_update_interval" value="2.0"/>
+    <param name="map_update_interval" value="1.0"/>
     <param name="maxUrange" value="4.0"/>
     <param name="minimumScore" value="100"/>
     <param name="linearUpdate" value="0.2"/>
@@ -59,11 +59,12 @@
     <param name="lasamplerange" value="0.005"/>
     <param name="lasamplestep" value="0.005"/>
   </node>
+  
 
-  <node pkg="asl_turtlebot" type="pose_controller.py" name="turtlebot_pose_controller" />
-  <node pkg="asl_turtlebot" type="cmd_pose_commander.py" name="cmd_pose_commander" />
-  <node pkg="asl_turtlebot" type="detector.py" name="turtlebot_detector" />
-  
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find asl_turtlebot)/rviz/project_sim.rviz"/>
-  
+  <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" />
+  <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" />
+  <node pkg="turtlebot_team5" type="cmd_nav_commander.py" name="cmd_nav_commander" />
+  <node pkg="turtlebot_team5" type="detector.py" name="turtlebot_detector" />
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_team5)/rviz/project_sim.rviz"/>
 </launch>

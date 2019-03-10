@@ -8,6 +8,7 @@ import tf
 import numpy as np
 from numpy import linalg
 from utils import wrapToPi
+from team5_utils import log
 
 # control gains
 K1 = 0.4
@@ -91,15 +92,17 @@ class PoseController:
         self.x_g = data.x
         self.y_g = data.y
         self.theta_g = data.theta
+        rospy.loginfo("Got goal x:{} y:{}".format(self.x_g, self.y_g))
+
         ######### END OF YOUR CODE ##########
         self.cmd_pose_time = rospy.get_rostime()
 
 
     def get_ctrl_output(self):
-        if self.x_g is None:
+        if self.x_g == None:
             return None
-
         """ runs a simple feedback pose controller """
+        log("in get ctrl, goal x:{} y:{}".format(self.x_g, self.y_g))
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
             # if you are not using gazebo, your need to use a TF look-up to find robot's states
             # relevant for hw 3+
@@ -112,6 +115,8 @@ class PoseController:
                     euler = tf.transformations.euler_from_quaternion(rotation)
                     self.theta = euler[2]
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                    log("get tf exception")
+                    print("got tf exception")                    
                     pass
 
             ######### YOUR CODE HERE ############
@@ -125,10 +130,10 @@ class PoseController:
 
             th_rot = self.theta-self.theta_g 
             rho = linalg.norm(rel_coords) 
-            rospy.loginfo("From goal: {}, {}".format(rho, th_rot))
+            log("From goal: {}, {}".format(rho, th_rot))
 
             if (rho < 0.06) & (th_rot < 0.16):
-                rospy.loginfo("Close to goal: commanding zero controls")
+                log("Close to goal: commanding zero controls")
                 self.x_g = None
                 self.y_g = None
                 self.theta_g = None
@@ -146,13 +151,15 @@ class PoseController:
                 # Apply saturation limits
                 cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
                 cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
+                log("calculating ctrl x {}, theta {}".format(cmd_x_dot, cmd_theta_dot))
+
 
 
             ######### END OF YOUR CODE ##########
 
         else:
             # haven't received a command in a while so stop
-            rospy.loginfo("Pose controller TIMEOUT: commanding zero controls")
+            log("Pose controller TIMEOUT: commanding zero controls")
             cmd_x_dot = 0
             cmd_theta_dot = 0
 
@@ -163,6 +170,8 @@ class PoseController:
         return cmd
 
     def run(self):
+        log("Pose Controller started")
+        print("Pose controller sstarted")
         rate = rospy.Rate(10) # 10 Hz
         while not rospy.is_shutdown():
             ctrl_output = self.get_ctrl_output()
