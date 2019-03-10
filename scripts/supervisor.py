@@ -11,7 +11,7 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
 from asl_turtlebot.msg import DetectedObject
 from timer import Timer
-
+from utils import log, error
 
 # ==================================================================================================
 # Constants.
@@ -30,14 +30,6 @@ CROSSING_TIME = 3
 # Time (s) to stop at a stop sign.
 STOP_TIME = 3
 
-# ==================================================================================================
-# Helper functions.
-
-def log(*args):
-    rospy.loginfo(" ".join([str(arg) for arg in args]))
-
-def error(*args):
-    rospy.logerror(" ".join([str(arg) for arg in args]))
 
 # ==================================================================================================
 # Parameters.
@@ -59,14 +51,14 @@ log("mapping:", mapping)
 class Supervisor:
 
     def __init__(self):
-        """Initialized ROS node with the state machine in the `Mode.START` mode."""
+        """Initialized ROS node with the state machine in the `ManualMode` mode."""
         rospy.init_node('turtlebot_supervisor', anonymous=True)
 
         # ==========================================================================================
         # Robot state.
 
         # Current mode.
-        self.mode = Mode.MANUAL
+        self.mode = ManualMode
         self._mode_lock = threading.Lock()
 
         # Current robot pose.
@@ -182,7 +174,7 @@ class Supervisor:
             error("Got to rviz_goal_callback while in mode:", self.mode)
             return
 
-        origin_frame = "/map" if self.mapping else "/odom"
+        origin_frame = "/map" if mapping else "/odom"
         try:
             nav_pose_origin = self.trans_listener.transformPose(origin_frame, msg)
             self.nav_goal_pose_x = nav_pose_origin.pose.position.x
@@ -214,27 +206,25 @@ class Supervisor:
     # ==============================================================================================
     # State machine.
 
-    def log_mode(self, mode):
-        """Log current mode if it has changed."""
-        if self._last_mode_printed != mode:
-            log("Current mode:", mode)
-            self._last_mode_printed = mode
-
     def set_mode(self, mode):
         """Sets the current mode in thread safe way."""
         self._mode_lock.acquire()
         self.mode = mode
+        if self._last_mode_printed != mode:
+            log("Current mode set to:", mode)
+            self._last_mode_printed = mode
+        else:
+            log("Current mode already set to:", mode)
         self._mode_lock.release()
 
     def run(self):
         """Loop to execute state machine logic."""
         rate = rospy.Rate(10)  # 10 Hz
         while not rospy.is_shutdown():
-
             # Get location from mapping if using real robot.
-            if not self.use_gazebo:
+            if not use_gazebo:
                 try:
-                    origin_frame = "/map" if self.mapping else "/odom"
+                    origin_frame = "/map" if mapping else "/odom"
                     (translation, rotation) = self.trans_listener.lookupTransform(origin_frame,
                                                                                   '/base_footprint',
                                                                                   rospy.Time(0))
@@ -275,7 +265,7 @@ class Mode(object):
 class ManualMode(Mode):
     @staticmethod
     def run(robot):
-        if robot.x is not None:
+        if robot.nav_goal_pose_x is not None:
             msg = Pose2D()
             msg.x = robot.nav_goal_pose_x
             msg.y = robot.nav_goal_pose_y

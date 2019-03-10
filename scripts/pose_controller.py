@@ -7,8 +7,7 @@ from std_msgs.msg import Float32MultiArray, String
 import tf
 import numpy as np
 from numpy import linalg
-from utils import wrapToPi
-from team5_utils import log
+from utils import wrapToPi, log
 
 # control gains
 K1 = 0.4
@@ -32,10 +31,9 @@ use_gazebo = rospy.get_param("sim")
 # if using gmapping, you will have a map frame. otherwise it will be odom frame
 mapping = rospy.get_param("map")
 
-
-print "pose_controller settings:\n"
-print "use_gazebo = %s\n" % use_gazebo
-print "mapping = %s\n" % mapping
+log("pose_controller settings:")
+log("use_gazebo:", use_gazebo)
+log("mapping:", mapping)
 
 class PoseController:
 
