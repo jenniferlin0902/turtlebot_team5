@@ -60,7 +60,6 @@
     <param name="lasamplestep" value="0.005"/>
   </node>
 
-  <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" />
   <node pkg="turtlebot_team5" type="cmd_pose_commander.py" name="cmd_pose_commander" />
   <node pkg="turtlebot_team5" type="detector.py" name="turtlebot_detector" />
   
