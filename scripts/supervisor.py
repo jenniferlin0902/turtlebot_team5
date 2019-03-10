@@ -15,12 +15,6 @@
     - See team5_util.py for misc functions.
 '''
 
-'''
-    TODO:
-    - Implement manual control. Need something like:
-        from asl_turtlebot.msg import ManualInput
-        assign callback
-'''
 
 import rospy
 from gazebo_msgs.msg import ModelStates
@@ -445,7 +439,7 @@ class Supervisor:
         '''
 
         #################################################################################
-        # Do not change this for hw2 -- this won't affect your FSM since you are using gazebo
+        # This won't affect your FSM since you are using gazebo
         if self.mode != Mode.START and not self.use_gazebo:
             try:
                 origin_frame = "/map" if self.mapping else "/odom"
@@ -472,7 +466,7 @@ class Supervisor:
         #     START
         # '''
         if state == Mode.START:                 # Go to NAV
-            #self.init()
+            self.init()
             state = Mode.MANUAL
         
         # '''
@@ -486,12 +480,9 @@ class Supervisor:
         # '''
         elif state == Mode.MANUAL:
             pose_msg = Pose2D()
-            try:
-            	pose_msg.x = self.nav_goal_pose_x
-            	pose_msg.y = self.nav_goal_pose_y
-            	pose_msg.theta = self.nav_goal_pose_theta
-	    except:
-		pass
+            pose_msg.x = self.nav_goal_pose_x
+            pose_msg.y = self.nav_goal_pose_y
+            pose_msg.theta = self.nav_goal_pose_theta
             self.pose_controller_publisher.publish(pose_msg)
 
         # '''
