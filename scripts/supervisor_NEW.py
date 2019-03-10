@@ -105,7 +105,7 @@ class Supervisor:
         '''
         self.timers = Timers()
 
-    def init_global_ros_settings():
+    def init_global_ros_settings(self):
         # if sim is True/using gazebo, therefore want to subscribe to /gazebo/model_states\
         # otherwise, they will use a TF lookup (hw2+)
         self.use_gazebo = rospy.get_param("sim")
@@ -125,23 +125,29 @@ class Supervisor:
         rospy.init_node('turtlebot_supervisor', anonymous=True)
 
     def init_ros_publishers(self):
-        self.trans_listener = tf.TransformListener()
         # command pose for controller
         self.pose_goal_publisher = rospy.Publisher('/cmd_pose', Pose2D, queue_size=10)
         # command vel (used for idling)
         self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
+
+
     def init_ros_subscribers(self):
+        self.trans_listener = tf.TransformListener()
+
         # stop sign detector
-        rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
+        # rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
+
         # high-level navigation pose
         rospy.Subscriber('/nav_pose', Pose2D, self.nav_pose_callback)
+
         # if using gazebo, we have access to perfect state
-        if self.use_gazebo:
-            rospy.Subscriber('/gazebo/model_states', ModelStates, self.gazebo_callback)
+        # if self.use_gazebo:
+        #     rospy.Subscriber('/gazebo/model_states', ModelStates, self.gazebo_callback)
+
         # if using rviz, we can subscribe to nav goal click
-        if self.rviz:
-            rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)
+        # if self.rviz:
+        #     rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)
         
         '''
             TODO:
@@ -373,7 +379,7 @@ class Supervisor:
 
     ####################### Logging #######################
 
-    def log_state(state):
+    def log_state(self, state):
         '''
             Log state if it has changed.
             log() is in team5_util.py.
@@ -428,7 +434,7 @@ class Supervisor:
         # '''''''''''''''''''''''''''''''''''''''''''''''''
 
         state = self.mode
-        log_state(state)
+        self.log_state(state)
 
 
         # '''
