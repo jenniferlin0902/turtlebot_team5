@@ -167,15 +167,16 @@ class Detector:
         else:
             meas = ranges[rightray_indx:leftray_indx]
 
-        num_m, dist = 0, 0
+        num_m = 0
+        dists = []
         for m in meas:
             if m>0 and m<float('Inf'):
-                dist += m
+                dists.append(m)
                 num_m += 1
-        if num_m>0:
-            dist /= num_m
 
-        return dist
+        dists = np.sort(np.array(dists))
+        m = min(10, num_m)
+        return np.mean(dists[:m])
 
     def camera_callback(self, msg):
         """ callback for camera images """

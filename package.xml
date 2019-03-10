@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <package>
+<<<<<<< HEAD
   <name>asl_turtlebot_team5</name>
   <version>0.0.0</version>
   <description>The asl_turtlebot package</description>
@@ -8,12 +9,26 @@
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
   <maintainer email="blandry@todo.todo">blandry</maintainer>
+=======
+  <name>asl_turtlebot</name>
+  <version>0.0.0</version>
+  <description>The asl_turtlebot package</description>
+
+  <!-- One maintainer tag required, multiple allowed, one person per tag -->
+  <!-- Example:  -->
+  <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
+  <maintainer email="blandry@stanford.edu">Benoit Landry</maintainer>
+>>>>>>> new_course_project
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+<<<<<<< HEAD
   <license>TODO</license>
+=======
+  <license>MIT</license>
+>>>>>>> new_course_project
 
 
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
@@ -43,14 +58,26 @@
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
+<<<<<<< HEAD
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>std_msgs</run_depend>
 
+=======
+  <build_depend>message_generation</build_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>message_generation</run_depend>
+>>>>>>> new_course_project
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->
 
   </export>
+<<<<<<< HEAD
 </package>
+=======
+</package>
+>>>>>>> new_course_project
