@@ -41,6 +41,7 @@ class PoseController:
     def __init__(self):
         rospy.init_node('turtlebot_pose_controller_nav', anonymous=True)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        # self.step_publisher = rospy.Publisher('/step_goal_pose_')
 
         # current state
         self.x = 0.0
@@ -66,6 +67,7 @@ class PoseController:
         # calls cmd_pose_callback. It should subscribe to '/cmd_pose'
 
         rospy.Subscriber('/step_goal_pose', Pose2D, self.cmd_pose_callback)
+        
 
         ######### END OF YOUR CODE ##########
 
@@ -165,6 +167,11 @@ class PoseController:
             ctrl_output = self.get_ctrl_output()
             if ctrl_output is not None:
                 self.pub.publish(ctrl_output)
+
+            # if self.x_g != None and self.goal_reached():
+                # self.x_g = None
+                # self.step_publisher.publish("done")
+                
             rate.sleep()
 
 if __name__ == '__main__':

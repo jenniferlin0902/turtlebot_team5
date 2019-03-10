@@ -93,7 +93,7 @@ class Navigator:
         rospy.Subscriber('/nav_goal_pose', Pose2D, self.cmd_nav_callback)
 
         # Publish intermediate poses. Pose_Controller listens to this
-        self.nav_pose_pub = rospy.Publisher('/step_goal_pose', Pose2D, queue_size=10)
+        # self.nav_pose_pub = rospy.Publisher('/step_goal_pose', Pose2D, queue_size=10)
 
     def cmd_nav_callback(self, data):
         self.x_g = data.x
