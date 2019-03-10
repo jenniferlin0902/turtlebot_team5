@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
-<<<<<<< HEAD
 project(asl_turtlebot_team5)
-=======
-project(asl_turtlebot)
->>>>>>> new_course_project
+
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
