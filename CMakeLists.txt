@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(asl_turtlebot_team5)
+project(turtlebot_team5)
 
 
 ## Find catkin macros and libraries

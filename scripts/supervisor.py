@@ -32,8 +32,8 @@ import tf
 import math
 from enum import Enum
 
-from team5_util import log, valdiate_value
-from team5_timers import Timers
+from team5_utils import log
+#from team5_timers import Timers
 
 
 ####################### Constants #######################
@@ -74,6 +74,7 @@ class Supervisor:
             Set initial state. In Loop(), START state will call self.init()  
         '''
         self.mode = Mode.START
+        self.init()
 
 
 
@@ -104,7 +105,8 @@ class Supervisor:
         '''
             See team5_timers.py for more details.
         '''
-        self.timers = Timers()
+        #self.timers = Timers()
+        self.timers = None
 
     def init_global_ros_settings(self):
         # if sim is True/using gazebo, therefore want to subscribe to /gazebo/model_states\
@@ -140,7 +142,7 @@ class Supervisor:
         # self.pose_goal_publisher = rospy.Publisher('/cmd_pose', Pose2D, queue_size=10)
 
         # command vel (used for idling)
-        # self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
 
 
@@ -178,6 +180,7 @@ class Supervisor:
 
     def state_machine_callback(self, msg):
 
+        msg = msg.data
         if msg == "idle":
             self.mode = Mode.IDLE
 
@@ -241,9 +244,9 @@ class Supervisor:
 
     def rviz_goal_callback(self, msg):
         """ callback for a pose goal sent through rviz """
-        if self.mode != Mode.MANUAL:
-            raise Exception("WARNING: In rviz_goal_callback while not in MANUAL mode.")
-
+        #if self.mode != Mode.MANUAL:
+        #    raise Exception("WARNING: In rviz_goal_callback while not in MANUAL mode.")
+	
         log("In RVIZ_GOAL_CALLBACK.")
         origin_frame = "/map" if self.mapping else "/odom"
         log("rviz command received!")
@@ -272,10 +275,11 @@ class Supervisor:
             Send the current desired pose to the pose controller.
         '''
 
-        except:
-            log("WARNING: nav_goal_pose_x, nav_goal_pose_y, nav_goal_pose_theta not set.")
+        #except:
+        #    log("WARNING: nav_goal_pose_x, nav_goal_pose_y, nav_goal_pose_theta not set.")
 
-        self.pose_goal_publisher.publish(pose_g_msg)
+        #self.pose_goal_publisher.publish(pose_g_msg)
+        pass
 
     def idle(self):
         '''
@@ -468,7 +472,7 @@ class Supervisor:
         #     START
         # '''
         if state == Mode.START:                 # Go to NAV
-            self.init()
+            #self.init()
             state = Mode.MANUAL
         
         # '''
@@ -482,9 +486,12 @@ class Supervisor:
         # '''
         elif state == Mode.MANUAL:
             pose_msg = Pose2D()
-            pose_msg.x = self.nav_goal_pose_x
-            pose_msg.y = self.nav_goal_pose_y
-            pose_msg.theta = self.nav_goal_pose_theta
+            try:
+            	pose_msg.x = self.nav_goal_pose_x
+            	pose_msg.y = self.nav_goal_pose_y
+            	pose_msg.theta = self.nav_goal_pose_theta
+	    except:
+		pass
             self.pose_controller_publisher.publish(pose_msg)
 
         # '''
