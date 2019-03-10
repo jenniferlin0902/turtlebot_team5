@@ -214,20 +214,6 @@ class Supervisor:
     # ==============================================================================================
     # State machine.
 
-    # This won't affect your FSM since you are using gazebo
-    # if not self.use_gazebo:
-    #     try:
-    #         origin_frame = "/map" if self.mapping else "/odom"
-    #         (translation, rotation) = self.trans_listener.lookupTransform(origin_frame,
-    #                                                                       '/base_footprint',
-    #                                                                       rospy.Time(0))
-    #         self.x = translation[0]
-    #         self.y = translation[1]
-    #         euler = tf.transformations.euler_from_quaternion(rotation)
-    #         self.theta = euler[2]
-    #     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-    #         pass
-
     def log_mode(self, mode):
         """Log current mode if it has changed."""
         if self._last_mode_printed != mode:
@@ -244,6 +230,21 @@ class Supervisor:
         """Loop to execute state machine logic."""
         rate = rospy.Rate(10)  # 10 Hz
         while not rospy.is_shutdown():
+
+            # Get location from mapping if using real robot.
+            if not self.use_gazebo:
+                try:
+                    origin_frame = "/map" if self.mapping else "/odom"
+                    (translation, rotation) = self.trans_listener.lookupTransform(origin_frame,
+                                                                                  '/base_footprint',
+                                                                                  rospy.Time(0))
+                    self.x = translation[0]
+                    self.y = translation[1]
+                    euler = tf.transformations.euler_from_quaternion(rotation)
+                    self.theta = euler[2]
+                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                    pass
+
             self.mode.run(self)
             rate.sleep()
 
