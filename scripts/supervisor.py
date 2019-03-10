@@ -142,8 +142,10 @@ class Supervisor:
         self.trans_listener = tf.TransformListener()
 
         # stop sign detector
-        rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
-        rospy.Subscriber('/detector/pizza', DetectedObject, self.stop_sign_detected_callback)
+        rospy.Subscriber('/detector/stop_sign', DetectedObject, self.object_detected_callback)
+        rospy.Subscriber('/detector/pizza', DetectedObject, self.object_detected_callback)
+        rospy.Subscriber('/detector/pizza', DetectedObject, self.object_detected_callback)
+
 
 
         # high-level navigation pose
