@@ -125,10 +125,17 @@ class Supervisor:
         rospy.init_node('turtlebot_supervisor', anonymous=True)
 
     def init_ros_publishers(self):
-        # command pose for controller
-        self.pose_goal_publisher = rospy.Publisher('/cmd_pose', Pose2D, queue_size=10)
+
+        # command pose for controller -- final destination
+        # navigator should listen to this
+        self.pose_goal_publisher = rospy.Publisher('/nav_pose', Pose2D, queue_size=10)
+
+
+
+        # self.pose_goal_publisher = rospy.Publisher('/cmd_pose', Pose2D, queue_size=10)
+
         # command vel (used for idling)
-        self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        # self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
 
 
@@ -139,7 +146,7 @@ class Supervisor:
         # rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
 
         # high-level navigation pose
-        rospy.Subscriber('/nav_pose', Pose2D, self.nav_pose_callback)
+        rospy.Subscriber('/nav_goal_pose', Pose2D, self.nav_pose_callback)
 
         # if using gazebo, we have access to perfect state
         # if self.use_gazebo:

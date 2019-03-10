@@ -65,7 +65,7 @@ class PoseController:
         # create a subscriber that receives Pose2D messages and
         # calls cmd_pose_callback. It should subscribe to '/cmd_pose'
 
-        rospy.Subscriber('/cmd_pose', Pose2D, self.cmd_pose_callback)
+        rospy.Subscriber('/step_goal_pose', Pose2D, self.cmd_pose_callback)
 
         ######### END OF YOUR CODE ##########
 
