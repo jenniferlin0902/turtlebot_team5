@@ -6,19 +6,19 @@ import os
 from tf import TransformListener
 import tensorflow as tf
 import numpy as np
-from sensor_msgs.msg import Image, CameraInfo, LaserScan
-from asl_turtlebot.msg import DetectedObject
+from sensor_msgs.msg import CompressedImage, Image, CameraInfo, LaserScan
+from asl_turtlebot.msg import DetectedObject, DetectedObjectList
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import math
 
 # path to the trained conv net
-PATH_TO_MODEL = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../tfmodels/stop_signs_gazebo.pb')
+PATH_TO_MODEL = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../tfmodels/ssd_resnet_50_fpn_coco.pb')
 PATH_TO_LABELS = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../tfmodels/coco_labels.txt')
 
 # set to True to use tensorflow and a conv net
 # False will use a very simple color thresholding to detect stop signs only
-USE_TF = rospy.get_param("use_tf")
+USE_TF = True
 # minimum score for positive detection
 MIN_SCORE = .5
 
@@ -42,6 +42,8 @@ class Detector:
         rospy.init_node('turtlebot_detector', anonymous=True)
         self.bridge = CvBridge()
 
+        self.detected_objects_pub = rospy.Publisher('/detector/objects', DetectedObjectList, queue_size=10)
+
         if USE_TF:
             self.detection_graph = tf.Graph()
             with self.detection_graph.as_default():
@@ -55,7 +57,10 @@ class Detector:
                 self.d_scores = self.detection_graph.get_tensor_by_name('detection_scores:0')
                 self.d_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
                 self.num_d = self.detection_graph.get_tensor_by_name('num_detections:0')
-            self.sess = tf.Session(graph=self.detection_graph)
+                config = tf.ConfigProto()
+                config.gpu_options.allow_growth = True
+            self.sess = tf.Session(graph=self.detection_graph, config=config)
+            # self.sess = tf.Session(graph=self.detection_graph)
 
         # camera and laser parameters that get updated
         self.cx = 0.
@@ -69,8 +74,9 @@ class Detector:
         self.object_labels = load_object_labels(PATH_TO_LABELS)
 
         self.tf_listener = TransformListener()
-        rospy.Subscriber('/camera/image_raw', Image, self.camera_callback, queue_size=1)
-        rospy.Subscriber('/camera/camera_info', CameraInfo, self.camera_info_callback)
+        rospy.Subscriber('/raspicam_node/image_raw', Image, self.camera_callback, queue_size=1, buff_size=2**24)
+        rospy.Subscriber('/raspicam_node/image/compressed', CompressedImage, self.compressed_camera_callback, queue_size=1, buff_size=2**24)
+        rospy.Subscriber('/raspicam_node/camera_info', CameraInfo, self.camera_info_callback)
         rospy.Subscriber('/scan', LaserScan, self.laser_callback)
 
     def run_detection(self, img):
@@ -137,7 +143,8 @@ class Detector:
 
     def project_pixel_to_ray(self,u,v):
         """ takes in a pixel coordinate (u,v) and returns a tuple (x,y,z)
-        that is a unit vector in the direction of the pixel, in the camera frame """
+        that is a unit vector in the direction of the pixel, in the camera frame.
+        This function access self.fx, self.fy, self.cx and self.cy """
 
         x = (u - self.cx)/self.fx
         y = (v - self.cy)/self.fy
@@ -152,23 +159,28 @@ class Detector:
         """ estimates the distance of an object in between two angles
         using lidar measurements """
 
-        leftray_indx = min(max(0,int(thetaleft/self.laser_angle_increment)),len(ranges))
-        rightray_indx = min(max(0,int(thetaright/self.laser_angle_increment)),len(ranges))
+        offset = int(np.pi/self.laser_angle_increment)
+        # add offset and wrap to number of points. laserscan should always have the same number of points. (2*offset = len(ranges))
+        # See https://github.com/StanfordASL/velodyne/blob/master/velodyne_laserscan/src/VelodyneLaserScan.cpp#L110
+        leftray_indx = (offset + min(max(0, int(thetaleft/self.laser_angle_increment)), offset * 2)) % (offset * 2)
+        rightray_indx = (offset + min(max(0, int(thetaright/self.laser_angle_increment)), offset * 2)) % (offset * 2)
 
         if leftray_indx<rightray_indx:
             meas = ranges[rightray_indx:] + ranges[:leftray_indx]
         else:
             meas = ranges[rightray_indx:leftray_indx]
 
-        num_m, dist = 0, 0
+        num_m = 0
+        dists = []
         for m in meas:
             if m>0 and m<float('Inf'):
-                dist += m
+                dists.append(m)
                 num_m += 1
-        if num_m>0:
-            dist /= num_m
 
-        return dist
+        dists = np.sort(np.array(dists))
+        m = min(10, num_m)
+        return np.mean(dists[:m])
+
 
     def camera_callback(self, msg):
         """ callback for camera images """
@@ -182,12 +194,32 @@ class Detector:
         except CvBridgeError as e:
             print(e)
 
+        self.camera_common(img_laser_ranges, img, img_bgr8)
+
+    def compressed_camera_callback(self, msg):
+        """ callback for camera images """
+
+        # save the corresponding laser scan
+        img_laser_ranges = list(self.laser_ranges)
+
+        try:
+            img = self.bridge.compressed_imgmsg_to_cv2(msg, "passthrough")
+            img_bgr8 = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+
+        self.camera_common(img_laser_ranges, img, img_bgr8)
+
+    def camera_common(self, img_laser_ranges, img, img_bgr8):
         (img_h,img_w,img_c) = img.shape
 
         # runs object detection in the image
         (boxes, scores, classes, num) = self.run_detection(img)
 
         if num > 0:
+            # create list of detected objects
+            detected_objects = DetectedObjectList()
+
             # some objects were detected
             for (box,sc,cl) in zip(boxes, scores, classes):
                 ymin = int(box[0]*img_h)
@@ -229,14 +261,21 @@ class Detector:
                 object_msg.corners = [ymin,xmin,ymax,xmax]
                 self.object_publishers[cl].publish(object_msg)
 
+                # add detected object to detected objects list
+                detected_objects.objects.append(self.object_labels[cl])
+                detected_objects.ob_msgs.append(object_msg)
+
+            self.detected_objects_pub.publish(detected_objects)
+
         # displays the camera image
-        cv2.imshow("Camera", img_bgr8)
-        cv2.waitKey(1)
+        #cv2.imshow("Camera", img_bgr8)
+        #cv2.waitKey(1)
 
     def camera_info_callback(self, msg):
         """ extracts relevant camera intrinsic parameters from the camera_info message.
         cx, cy are the center of the image in pixel (the principal point), fx and fy are
-        the focal lengths. """
+        the focal lengths. Stores the result in the class itself as self.cx, self.cy,
+        self.fx and self.fy """
 
         self.cx = msg.P[2]
         self.cy = msg.P[6]

@@ -45,7 +45,10 @@ class Mode(Enum):
 
 print "supervisor settings:\n"
 print "use_gazebo = %s\n" % use_gazebo
+<<<<<<< HEAD
 print "rviz = %s\n" % rviz
+=======
+>>>>>>> new_course_project
 print "mapping = %s\n" % mapping
 
 class Supervisor:
@@ -61,6 +64,8 @@ class Supervisor:
         self.trans_listener = tf.TransformListener()
         # command pose for controller
         self.pose_goal_publisher = rospy.Publisher('/cmd_pose', Pose2D, queue_size=10)
+        # nav pose for controller
+        self.nav_goal_publisher = rospy.Publisher('/cmd_nav', Pose2D, queue_size=10)
         # command vel (used for idling)
         self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
@@ -126,13 +131,6 @@ class Supervisor:
         if dist > 0 and dist < STOP_MIN_DIST and self.mode == Mode.NAV:
             self.init_stop_sign()
 
-
-    ############ your code starts here ############
-    # feel free to change the code here 
-    # you may or may not find these functions useful
-    # there is no "one answer"
-
-
     def go_to_pose(self):
         """ sends the current desired pose to the pose controller """
 
@@ -192,9 +190,6 @@ class Supervisor:
         actions. This function shouldn't return anything """
 
 
-
-        #################################################################################
-        # Do not change this for hw2 -- this won't affect your FSM since you are using gazebo
         if not use_gazebo:
             try:
                 origin_frame = "/map" if mapping else "/odom"
@@ -205,10 +200,6 @@ class Supervisor:
                 self.theta = euler[2]
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
-        #################################################################################
-
-    # YOUR STATE MACHINE
-    # Currently it will just go to the pose without stopping at the stop sign
 
         # logs the current mode
         if not(self.last_mode_printed == self.mode):
@@ -244,8 +235,6 @@ class Supervisor:
         else:
             raise Exception('This mode is not supported: %s'
                 % str(self.mode))
-
-    ############ your code ends here ############
 
     def run(self):
         rate = rospy.Rate(10) # 10 Hz
