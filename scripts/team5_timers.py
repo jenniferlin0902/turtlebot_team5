@@ -33,23 +33,18 @@ TIMER_NOT_SET = -1
 
 class Timers(Enum):
     STOP_TIMER = STOP_TIME
-    CROSS_TIMER = CROSSING_TIME
+    CROSS_TIMER = CROSSING_TIME 
+
+class TimersObject(Enum):
+
 
     def __init__(self):
         '''
             Initialize timers.
         '''
 
-        self.start_times = { timer.key : TIMER_NOT_SET for timer in self }
-        self.durations = { timer.key : timer.value for timer in self }
-        # self.start_times = {
-        #     "stop"  : TIMER_NOT_SET,
-        #     "cross" : TIMER_NOT_SET,
-        # }
-        # self.durations = {
-        #     "stop"  : STOP_TIME,
-        #     "cross" : CROSSING_TIME,
-        # }
+        self.start_times = { timer.key : TIMER_NOT_SET for timer in Timers }
+        self.durations = { timer.key : timer.value for timer in Timers }
 
     def start_timer(self, timer_name):
         '''
@@ -94,7 +89,7 @@ class Timers(Enum):
 
 
 	####################### Other #######################
-	'''
+    '''
 		Extra methods.
 		Might be useful later.
 	'''

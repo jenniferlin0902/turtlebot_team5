@@ -27,7 +27,7 @@ import math
 from enum import Enum
 
 from team5_utils import log
-#from team5_timers import Timers
+from team5_timers import Timers, TimersObject
 
 
 ####################### Constants #######################
@@ -67,9 +67,7 @@ class Supervisor:
         '''
             Set initial state. In Loop(), START state will call self.init()  
         '''
-        self.mode = Mode.START
-        self.init()
-
+        self.state = Mode.START
 
 
     ####################### Init #######################
@@ -99,8 +97,7 @@ class Supervisor:
         '''
             See team5_timers.py for more details.
         '''
-        #self.timers = Timers()
-        self.timers = None
+        self.timers = TimersObject()
 
     def init_global_ros_settings(self):
         # if sim is True/using gazebo, therefore want to subscribe to /gazebo/model_states\
@@ -119,6 +116,7 @@ class Supervisor:
         log("mapping = %s\n" % self.mapping)
 
     def init_ros_node(self):
+        self.rate = rospy.Rate(10) # 10 Hz
         rospy.init_node('turtlebot_supervisor', anonymous=True)
 
     def init_ros_publishers(self):
@@ -144,7 +142,9 @@ class Supervisor:
         self.trans_listener = tf.TransformListener()
 
         # stop sign detector
-        # rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
+        rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
+        rospy.Subscriber('/detector/pizza', DetectedObject, self.stop_sign_detected_callback)
+
 
         # high-level navigation pose
         # rospy.Subscriber('/nav_goal_pose', Pose2D, self.nav_pose_callback)
@@ -162,11 +162,6 @@ class Supervisor:
         # if using rviz, we can subscribe to nav goal click
         if self.rviz:
             rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)
-        
-        '''
-            TODO:
-                - Possibly add callback for manual control?
-        '''
 
 
 
@@ -176,10 +171,10 @@ class Supervisor:
 
         msg = msg.data
         if msg == "idle":
-            self.mode = Mode.IDLE
+            self.state = Mode.IDLE
 
         elif msg == "manual":
-            self.mode = Mode.MANUAL
+            self.state = Mode.MANUAL
 
         elif msg.startswith("nav"):
             target = msg.split(":")[1]
@@ -189,24 +184,41 @@ class Supervisor:
                 target_coordinates = food_coordinates[target]
                 self.nav_goal_pose_x = target_coordinates[0]
                 self.nav_goal_pose_y = target_coordinates[1]
-                self.mode = Mode.NAV
+                self.state = Mode.NAV
 
         else:
             log("ERROR: Invalid message to state_machine_callback: " + msg)
 
 
     def nav_path_callback(self, msg):
-        if self.mode != Mode.NAV:
+        '''
+            Respond to posting of Path object to /nav_path topic.
+        '''
+        if self.state != Mode.NAV:
             raise Exception("Not in mode NAV while in nav_path_callback.")
-
         self.path = msg
         self.path_index = 0
 
-    def nav_pose_callback(self, msg):
-        log("IN NAV_POSE_CALLBACK")
-        self.nav_goal_pose_x = msg.x
-        self.nav_goal_pose_y = msg.y
-        self.nav_goal_pose_theta = msg.theta
+    # def nav_pose_callback(self, msg):
+    #     log("IN NAV_POSE_CALLBACK")
+    #     self.nav_goal_pose_x = msg.x
+    #     self.nav_goal_pose_y = msg.y
+    #     self.nav_goal_pose_theta = msg.theta
+
+    def object_detected_callback(self, msg):
+        '''
+            Respond to posting of DetectedObject object to /detected/<object_name> topic.
+        '''
+        obj = msg.name
+        location = self.get_object_location(msg)
+
+        if obj == "pizza":
+            self.objects['pizza'] = 
+
+
+        else:
+            raise Exception("That object is not recognized: " + str(obj))
+
 
     def stop_sign_detected_callback(self, msg):
         '''
@@ -238,7 +250,7 @@ class Supervisor:
 
     def rviz_goal_callback(self, msg):
         """ callback for a pose goal sent through rviz """
-        #if self.mode != Mode.MANUAL:
+        #if self.state != Mode.MANUAL:
         #    raise Exception("WARNING: In rviz_goal_callback while not in MANUAL mode.")
 	
         log("In RVIZ_GOAL_CALLBACK.")
@@ -268,7 +280,6 @@ class Supervisor:
         '''
             Send the current desired pose to the pose controller.
         '''
-
         #except:
         #    log("WARNING: nav_goal_pose_x, nav_goal_pose_y, nav_goal_pose_theta not set.")
 
@@ -284,7 +295,7 @@ class Supervisor:
 
 
 
-    ####################### Final Goal Detection #######################
+    ####################### Object Detection #######################
 
     def close_to(self, x, y, theta):
         '''
@@ -302,6 +313,16 @@ class Supervisor:
             return self.close_to(self.nav_goal_pose_x, self.nav_goal_pose_y, self.nav_goal_pose_theta)
         except:
             return False
+
+    def get_object_location(self, msg):
+        '''
+            Get's location from ObjectDetected object.
+        '''
+        if type(msg) != ObjectDetected:
+            raise Exception("Error: Invalid msg type passed into get_object_locaiton(). Requires ObjectedDetected.")
+
+        dist = msg.distance
+        # TODO: FINISH THIS
 
 
 
@@ -322,7 +343,7 @@ class Supervisor:
         '''
             Callback function. Do not use in State Machine.
         '''
-        print("STOP SIGN DETECTED.")
+        log("STOP SIGN DETECTED.")
         self._stop_sign_detected = True
 
     def clear_stop_sign_detected(self):
@@ -404,15 +425,15 @@ class Supervisor:
 
     ####################### Logging #######################
 
-    def log_state(self, state):
+    def log_state(self):
         '''
             Log state if it has changed.
             log() is in team5_util.py.
         '''
-        if not(self._last_mode_printed == state):
-            msg = "Current Mode: %s" % (state)
+        if not(self._last_mode_printed == self.state):
+            msg = "Current Mode: %s" % (self.state)
             log(msg)
-            self._last_mode_printed = state
+            self._last_mode_printed = self.state
 
 
 
@@ -440,7 +461,7 @@ class Supervisor:
 
         #################################################################################
         # This won't affect your FSM since you are using gazebo
-        if self.mode != Mode.START and not self.use_gazebo:
+        if self.state != Mode.START and not self.use_gazebo:
             try:
                 origin_frame = "/map" if self.mapping else "/odom"
                 (translation,rotation) = self.trans_listener.lookupTransform(origin_frame, '/base_footprint', rospy.Time(0))
@@ -458,27 +479,27 @@ class Supervisor:
         #                    STATE MACHINE
         # '''''''''''''''''''''''''''''''''''''''''''''''''
 
-        state = self.mode
-        self.log_state(state)
+        # state = self.state
+        self.log_state()
 
 
         # '''
         #     START
         # '''
-        if state == Mode.START:                 # Go to NAV
+        if self.state == Mode.START:                 # Go to NAV
             self.init()
-            state = Mode.MANUAL
+            self.state = Mode.MANUAL
         
         # '''
         #     IDLE
         # '''
-        elif state == Mode.IDLE:                # Wait forever
+        elif self.state == Mode.IDLE:                # Wait forever
             self.idle()
 
         # '''
         #    MANUAL
         # '''
-        elif state == Mode.MANUAL:
+        elif self.state == Mode.MANUAL:
             pose_msg = Pose2D()
             pose_msg.x = self.nav_goal_pose_x
             pose_msg.y = self.nav_goal_pose_y
@@ -488,7 +509,7 @@ class Supervisor:
         # '''
         #    NAV
         # '''
-        elif state == Mode.NAV:
+        elif self.state == Mode.NAV:
             if self.goal_reached():
                 next_goal = self.path[self.path_index]
                 self.path_index += 1
@@ -558,24 +579,21 @@ class Supervisor:
         # '''
         #    ERROR
         # '''
-        elif state == Mode.POSE:
-            raise Exception("In state Mode.POSE. Shouldn't be here.")
         else:
-            raise Exception("This mode not supported. Mode: " + str(state))
+            raise Exception("This mode not supported. Mode: " + str(self.state))
 
 
         # Assign new state
-        self.mode = state
+        # self.state = state
 
 
 
     ####################### Run #######################
 
     def run(self):
-        rate = rospy.Rate(10) # 10 Hz
         while not rospy.is_shutdown():
             self.loop()
-            rate.sleep()
+            self.rate.sleep()
 
 
 
