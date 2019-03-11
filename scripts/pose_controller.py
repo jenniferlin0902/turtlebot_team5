@@ -28,7 +28,8 @@ W_MAX = 1
 
 DIST_PREC = 0.06
 YAW_PREC = 0.16
-FIX_YAW_THREHSHOLD = np.pi * (45/180.0) # 45 degree
+FIX_YAW_THREHSHOLD = np.pi * (30/180.0) 
+# Robot will fix its direction first if it is off by more than FIX_YAW_THRESHOLD degree
 
 # if sim is True/using gazebo, therefore want to subscribe to /gazebo/model_states\
 # otherwise, they will use a TF lookup (hw2+)
