@@ -10,9 +10,12 @@ from numpy import linalg
 from utils import wrapToPi, log
 
 # control gains
-K1 = 0.4
-K2 = 0.8
-K3 = 0.8
+K1 = 0.4 #originally 0.4
+K2 = 0.8 #originally 0.8
+K3 = 0.8 #originally 0.4
+
+alpha_thresh = 0.2
+rho_thresh = 0.05
 
 # tells the robot to stay still
 # if it doesn't get messages within that time period
@@ -130,26 +133,48 @@ class PoseController:
             rho = linalg.norm(rel_coords) 
             log("From goal: {}, {}".format(rho, th_rot))
 
-            if (rho < 0.06) & (th_rot < 0.16):
-                log("Close to goal: commanding zero controls")
-                self.x_g = None
-                self.y_g = None
-                self.theta_g = None
-                cmd_x_dot = 0
-                cmd_theta_dot = 0
-            else:
-                ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
-                angs = wrapToPi(np.array([ang-th_rot, ang])) 
-                alpha = angs[0] 
-                delta = angs[1] 
+            ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
+            angs = wrapToPi(np.array([ang-th_rot, ang])) 
+            alpha = angs[0] 
+            delta = angs[1] 
 
-                V = K1*rho*np.cos(alpha) 
+            V=0
+            om=0
+
+            if alpha>alpha_thresh:
                 om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta) 
+            elif rho>rho_thresh:
+                V = K1*rho
+
+
+
+            # if (rho < 0.06) and (abs(th_rot) < 0.4): #originally: (rho < 0.06) & (th_rot < 0.16)
+            #     log("Close to goal: commanding zero controls")
+            #     self.x_g = None
+            #     self.y_g = None
+            #     self.theta_g = None
+            #     cmd_x_dot = 0
+            #     cmd_theta_dot = 0
+
+
+            # else:
+                # ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
+                # angs = wrapToPi(np.array([ang-th_rot, ang])) 
+                # alpha = angs[0] 
+                # delta = angs[1] 
+
+            #     V = K1*rho*np.cos(alpha) 
+            #     om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta) 
 
                 # Apply saturation limits
-                cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
-                cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
-                log("calculating ctrl x {}, theta {}".format(cmd_x_dot, cmd_theta_dot))
+            cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
+            cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
+            log("calculating ctrl x {}, theta {}".format(cmd_x_dot, cmd_theta_dot))
+
+
+
+
+
 
 
 
