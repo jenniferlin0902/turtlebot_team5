@@ -7,7 +7,7 @@
   <node pkg="turtlebot_team5" type="supervisor.py" name="turtlebot_supervisor" output="screen"/>
   <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" output="screen"/>
   <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" output="screen"/>
-  <node pkg="turtlebot_team5" type="detector.py" name="turtlebot_detector" output="screen"/>
+<node pkg="turtlebot_team5" type="detector_viz.py" name="turtlebot_detector_viz" output="screen"/>
 
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_team5)/rviz/project_rviz.rviz" />
 </launch>
