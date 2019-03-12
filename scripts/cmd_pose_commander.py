@@ -22,10 +22,9 @@ class GoalPoseCommander:
         
     def rviz_goal_callback(self, msg):
         """ callback for a pose goal sent through rviz """
-        rospy.loginfo("rviz command received!")
+        rospy.logdebug("rviz command received!")
         try:
             origin_frame = "/map" if mapping else "/odom"
-            rospy.loginfo("getting frame")
             nav_pose_origin = self.trans_listener.transformPose(origin_frame, msg)
             self.x_g = nav_pose_origin.pose.position.x
             self.y_g = nav_pose_origin.pose.position.y

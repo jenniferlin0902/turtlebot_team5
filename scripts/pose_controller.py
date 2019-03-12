@@ -25,6 +25,10 @@ V_MAX = 0.2
 # maximim angular velocity
 W_MAX = 1
 
+# whether goal is from rviz
+# need to find a better way to get this info
+RVIZ = 1
+
 DIST_PREC = 0.06
 YAW_PREC = 0.2
 
@@ -49,7 +53,7 @@ class PCState(Enum):
 
 class PoseController:
     def __init__(self):
-        rospy.init_node('turtlebot_pose_controller_nav', anonymous=True)
+        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.INFO, anonymous=True)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         # current state
@@ -91,18 +95,25 @@ class PoseController:
             self.theta = euler[2]
 
     def change_state(self, state):
+        if state != self.state:
+            rospy.loginfo("PoseController: State changed to {}".format(state))
         self.state = state
-        rospy.loginfo("PoseController: State changed to {}".format(self.state))
 
     def cmd_pose_callback(self, data):
-        if data.x == self.x_g and data.y == self.y_g and data.theta == self.theta_g:
+        if data.x == self.x_g and data.y == self.y_g:
             return
 
         self.x_g = data.x
         self.y_g = data.y
-        self.theta_g = data.theta
+        # rviz always set theta_g to 0
+        if not RVIZ:
+            self.theta_g = data.theta
+        else:
+            # use movement direction as theta_g
+            self.theta_g = self.get_direction(self.x_g, self.y_g)
+
         self.cmd_pose_time = rospy.get_rostime()
-        rospy.loginfo("Got goal x:{} y:{}, theta:{}".format(self.x_g, self.y_g, self.theta_g))
+        rospy.loginfo("Got new goal x:{} y:{}, theta:{}".format(self.x_g, self.y_g, self.theta_g))
         # start moving, always turn first
         self.change_state(PCState.FIX_YAW)
 
@@ -121,20 +132,16 @@ class PoseController:
 
     def get_ctrl_output_fwd(self):
         """ runs a simple feedback pose controller """
-        log("Getting ctrl output fwd - goal x:{} y:{}".format(self.x_g, self.y_g))
+        rospy.logdebug("Getting ctrl output fwd - goal x:{} y:{} theta:{}".format(self.x_g, self.y_g, self.theta_g))
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
-
-            self.update_current_pose()
-
             rel_coords = np.array([self.x-self.x_g, self.y-self.y_g])
             R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
             rel_coords_rot = np.dot(R,rel_coords)
 
             th_rot = self.theta-self.theta_g 
             rho = linalg.norm(rel_coords) 
-            log("From goal: {}, {}".format(rho, th_rot))
             if (rho < DIST_PREC) & (th_rot < YAW_PREC):
-                log("Close to goal: commanding zero controls")
+                rospy.logdebug("Close to goal: commanding zero controls")
                 # Should not reach here 
                 self.x_g = None
                 self.y_g = None
@@ -149,17 +156,18 @@ class PoseController:
 
                 V = K1*rho*np.cos(alpha) 
                 om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
+                cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
+                cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))   
             # From pervious master, not sure what is this for
             # elif rho>rho_thresh:
             #     V = K1*rho
                 # Apply saturation limits
-            cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
-            cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
-            log("calculating ctrl x {}, theta {}".format(cmd_x_dot, cmd_theta_dot))
+
+            rospy.logdebug("ctrl x dot {}, theta dot {}".format(cmd_x_dot, cmd_theta_dot))
 
         else:
             # haven't received a command in a while so stop
-            log("Pose controller TIMEOUT: commanding zero controls")
+            rospy.logdebug("Pose controller TIMEOUT: commanding zero controls")
             cmd_x_dot = 0
             cmd_theta_dot = 0
 
@@ -169,22 +177,24 @@ class PoseController:
         cmd.angular.z = cmd_theta_dot
         return cmd
 
+    def get_direction(self,x, y):
+        return np.arctan2(y-self.y, x-self.x)
+
     def get_ctrl_output_fix_yaw(self):
         cmd_x_dot = 0
         cmd_theta_dot = 0
 
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
-            self.update_current_pose()
-            direction = np.arctan2(self.y_g - self.y, self.x_g - self.x)
+            direction = self.get_direction(self.x_g, self.y_g)
             err_yaw = wrapToPi(direction - self.theta)
             if np.fabs(err_yaw) > FIX_YAW_THREHSHOLD:
-                rospy.loginfo("yaw error = %f", err_yaw)
+                rospy.logdebug("yaw error = %f", err_yaw)
                 cmd_theta_dot = 0.45 if err_yaw > 0 else -0.45
             else:
                 self.change_state(PCState.MOVE_FWD)
         else:
             # haven't received a command in a while so stop
-            log("Pose controller TIMEOUT: commanding zero controls")
+            rospy.logdebug("Pose controller TIMEOUT: commanding zero controls")
             cmd_x_dot = 0
             cmd_theta_dot = 0
 
@@ -194,8 +204,6 @@ class PoseController:
         return cmd
 
     def close_to_goal(self):
-        self.update_current_pose()
-
         rel_coords = np.array([self.x-self.x_g, self.y-self.y_g])
         R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
         rel_coords_rot = np.dot(R,rel_coords)
@@ -215,18 +223,18 @@ class PoseController:
         return cmd
 
     def run(self):
-        log("Pose Controller started")
+        rospy.loginfo("Pose Controller started")
         rate = rospy.Rate(10) # 10 Hz
         while not rospy.is_shutdown():
             # don't start until we received the first goal 
             if self.x_g == None:
-                ctrl_output = self.get_ctrl_output_idle()
-
-            # State machine for pose controller
-            if self.close_to_goal():
-                log("Close to goal, switch to idle")
+               self.change_state(PCState.IDLE)
+            elif self.close_to_goal():
+                rospy.logdebug("Close to goal, switch to idle")
                 self.change_state(PCState.IDLE)
 
+            self.update_current_pose()            
+            # State machine for pose controller
             if self.state == PCState.IDLE:
                 ctrl_output = self.get_ctrl_output_idle()
             elif self.state == PCState.FIX_YAW:
@@ -234,8 +242,7 @@ class PoseController:
             elif self.state == PCState.MOVE_FWD:
                 ctrl_output = self.get_ctrl_output_fwd()
             
-            if ctrl_output is not None:
-                self.pub.publish(ctrl_output)
+            self.pub.publish(ctrl_output)
                 
             rate.sleep()
 
