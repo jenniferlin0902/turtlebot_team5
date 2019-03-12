@@ -4,8 +4,11 @@ import numpy as np
 def log(*args):
     rospy.loginfo(" ".join([str(arg) for arg in args]))
 
+def debug(*args):
+    rospy.logdebug(" ".join([str(arg) for arg in args]))
+
 def error(*args):
-    rospy.logerror(" ".join([str(arg) for arg in args]))
+    rospy.logerr(" ".join([str(arg) for arg in args]))
 
 def wrapToPi(a):
     if isinstance(a, list):

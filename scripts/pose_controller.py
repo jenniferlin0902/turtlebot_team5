@@ -233,7 +233,7 @@ class PoseController:
                 rospy.logdebug("Close to goal, switch to idle")
                 self.change_state(PCState.IDLE)
 
-            self.update_current_pose()            
+            # self.update_current_pose()            
             # State machine for pose controller
             if self.state == PCState.IDLE:
                 ctrl_output = self.get_ctrl_output_idle()

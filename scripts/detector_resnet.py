@@ -16,6 +16,19 @@ import math
 PATH_TO_MODEL = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../tfmodels/ssd_resnet_50_fpn_coco.pb')
 PATH_TO_LABELS = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../tfmodels/coco_labels.txt')
 
+PRIOR = {
+    0: 1,  # unlabeled
+    12: 1,  # street sign
+    13: 1,  # stop sign
+    121: 1,  # food-other
+    122: 1,  # fruit
+    153: 1,  # salad
+    170: 1,  # vegetable
+}
+PRIOR.update({
+    i: 1 for i in range(44, 62)  # bottle - cake
+})
+
 # set to True to use tensorflow and a conv net
 # False will use a very simple color thresholding to detect stop signs only
 USE_TF = True
@@ -24,7 +37,6 @@ MIN_SCORE = .5
 
 def load_object_labels(filename):
     """ loads the coco object readable name """
-
     fo = open(filename,'r')
     lines = fo.readlines()
     fo.close()
@@ -60,7 +72,6 @@ class Detector:
                 config = tf.ConfigProto()
                 config.gpu_options.allow_growth = True
             self.sess = tf.Session(graph=self.detection_graph, config=config)
-            # self.sess = tf.Session(graph=self.detection_graph)
 
         # camera and laser parameters that get updated
         self.cx = 0.
@@ -119,20 +130,32 @@ class Detector:
 
     def filter(self, boxes, scores, classes, num):
         """ removes any detected object below MIN_SCORE confidence """
-
-        f_scores, f_boxes, f_classes = [], [], []
-        f_num = 0
-
+        boxes_r, scores_r, classes_r = [], [], []  # Reweighted objects
+        norm = 0.0
         for i in range(num):
-            if scores[i] >= MIN_SCORE:
-                f_scores.append(scores[i])
-                f_boxes.append(boxes[i])
-                f_classes.append(int(classes[i]))
-                f_num += 1
+            c = int(classes[i])
+            if c in PRIOR:
+                score = scores[i] * PRIOR[c]
+                rospy.loginfo("detector: {}({}) {}".format(self.object_labels[c], classes[i], score))
+                boxes_r.append(boxes[i])
+                scores_r.append(score)
+                classes_r.append(classes[i])
+                norm += score
+
+        boxes_f, scores_f, classes_f = [], [], []
+        for j in range(len(boxes_r)):
+            score = scores_r[j]
+            #rospy.loginfo("detector: {}({}) {}".format(self.object_labels[classes_f[j]], classes_f[j], score))
+            if score >= MIN_SCORE:
+                scores_f.append(score)
+                boxes_f.append(boxes_r[j])
+                classes_f.append(classes_r[j])
             else:
                 break
 
-        return f_boxes, f_scores, f_classes, f_num
+        rospy.loginfo("detector: total of {} elements ({})".format(len(boxes_f), ",".join(str(c) for c in classes_f)))
+
+        return boxes_f, scores_f, classes_f, len(boxes_f)
 
     def load_image_into_numpy_array(self, img):
         """ converts opencv image into a numpy array """
