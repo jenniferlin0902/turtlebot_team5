@@ -53,7 +53,7 @@ class PCState(Enum):
 
 class PoseController:
     def __init__(self):
-        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.INFO, anonymous=True)
+        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.DEBUG, anonymous=True)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         # current state
@@ -100,6 +100,7 @@ class PoseController:
         self.state = state
 
     def cmd_pose_callback(self, data):
+        rospy.debuglog("in cmd pose callback")
         if data.x == self.x_g and data.y == self.y_g:
             return
 
@@ -204,6 +205,7 @@ class PoseController:
         return cmd
 
     def close_to_goal(self):
+        self.update_current_pose()            
         rel_coords = np.array([self.x-self.x_g, self.y-self.y_g])
         R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
         rel_coords_rot = np.dot(R,rel_coords)
@@ -229,17 +231,20 @@ class PoseController:
             # don't start until we received the first goal 
             if self.x_g == None:
                self.change_state(PCState.IDLE)
+               # For some reason, if we try to update_current_goal()
+               # before a nav_goal is given we will get an tf error
             elif self.close_to_goal():
                 rospy.logdebug("Close to goal, switch to idle")
                 self.change_state(PCState.IDLE)
 
-            # self.update_current_pose()            
             # State machine for pose controller
             if self.state == PCState.IDLE:
                 ctrl_output = self.get_ctrl_output_idle()
             elif self.state == PCState.FIX_YAW:
+                self.update_current_pose()            
                 ctrl_output = self.get_ctrl_output_fix_yaw()
             elif self.state == PCState.MOVE_FWD:
+                self.update_current_pose()            
                 ctrl_output = self.get_ctrl_output_fwd()
             
             self.pub.publish(ctrl_output)
