@@ -8,6 +8,7 @@
   <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" output="screen"/>
   <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" output="screen"/>
   <node pkg="turtlebot_team5" type="object_locator.py" name="turtlebot_object_locator" output="screen"/>
+  <node pkg="turtlebot_team5" type="robot_marker.py" name="robot_marker" output="screen"/>
 <node pkg="turtlebot_team5" type="detector_viz.py" name="turtlebot_detector_viz" output="screen"/>
 
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_team5)/rviz/project_rviz.rviz" />
