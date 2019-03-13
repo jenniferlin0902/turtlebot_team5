@@ -7,7 +7,7 @@ from std_msgs.msg import Float32MultiArray, String
 import tf
 import numpy as np
 from numpy import linalg
-from utils import wrapToPi, log
+from utils import wrapToPi, log, error, debug
 from enum import Enum
 
 # control gains
@@ -100,7 +100,7 @@ class PoseController:
         self.state = state
 
     def cmd_pose_callback(self, data):
-        rospy.debuglog("in cmd pose callback")
+        debug("in cmd pose callback")
         if data.x == self.x_g and data.y == self.y_g:
             return
 

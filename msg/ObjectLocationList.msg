@@ -1,2 +1,1 @@
-string[] names
-ObjectLocation[] ob_locs 
+ObjectLocation[] locations

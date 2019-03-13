@@ -104,16 +104,15 @@ class ObjectLocator:
             obj_list = ObjectLocationList()
 
             for name, obj in self.objects.iteritems():
-                obj_loc_msg = ObjectLocation()
-                obj_loc_msg.x, obj_loc_msg.y = obj[0]
-                obj_loc_msg.confidence = obj[1]
-                obj_list.names.append(name)
-                obj_list.ob_locs.append(obj_loc_msg)
-                rospy.logdebug("Publi.shing obj {}, loc {}".format(name, obj_loc_msg))
+                obj_loc = ObjectLocation()
+                obj_loc.x, obj_loc.y = obj[0]
+                obj_loc.count = obj[1]
+                obj_list.locations.append(obj_loc)
+                rospy.logdebug("Publishing object {} at location {}".format(name, obj_loc))
             self.pub.publish(obj_list)
 
     def run(self):
-        rospy.loginfo("object locator started")
+        rospy.loginfo("Object locator started")
         rate = rospy.Rate(10) # 10 Hz
         while not rospy.is_shutdown():
             self.publish_object_location()

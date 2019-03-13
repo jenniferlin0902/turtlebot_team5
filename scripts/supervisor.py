@@ -9,7 +9,7 @@ from gazebo_msgs.msg import ModelStates
 from std_msgs.msg import Float32MultiArray, String
 from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
-from asl_turtlebot.msg import DetectedObject
+from asl_turtlebot.msg import DetectedObject, ObjectLocationList
 from timer import Timer
 from utils import log, error
 
@@ -114,11 +114,11 @@ class Supervisor:
         # Rviz pose setting through click.
         rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)
 
-        # Detected food items to pick up.
+        # Commanded food items to pick up.
         rospy.Subscriber('/delivery_request', String, self.delivery_request_callback)
 
-        # Detected stop sign.
-        # rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
+        # Detected object locations.
+        rospy.Subscriber('/object_location', ObjectLocationList, self.object_location_callback)
 
         # ==========================================================================================
         # Publishers.
@@ -175,6 +175,10 @@ class Supervisor:
         items = msg.data.lower().strip().split(",")
         if len(items) > 0:
             self.delivery_requests.extend(items)
+
+    def object_location_callback(self, msg):
+        for loc in msg.locations:
+            self.obj_coordinates[loc.name] = (loc.x, loc.y)
 
     # ==============================================================================================
     # Robot state query functions.
@@ -245,7 +249,10 @@ class Mode(object):
         pass
 
     def __str__(self):
-        return self.__name__
+        return type(self).__name__
+
+    def __repr__(self):
+        return str(self)
 
 
 class ManualMode(Mode):

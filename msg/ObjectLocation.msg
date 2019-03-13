@@ -1,4 +1,4 @@
 string name
 float64 x
 float64 y
-int32 confidence
+int32 count
