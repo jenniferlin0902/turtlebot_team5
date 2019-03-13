@@ -53,7 +53,7 @@ class PCState(Enum):
 
 class PoseController:
     def __init__(self):
-        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.DEBUG, anonymous=True)
+        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.INFO, anonymous=True)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         # current state
@@ -141,24 +141,15 @@ class PoseController:
 
             th_rot = self.theta-self.theta_g 
             rho = linalg.norm(rel_coords) 
-            if (rho < DIST_PREC) & (th_rot < YAW_PREC):
-                rospy.logdebug("Close to goal: commanding zero controls")
-                # Should not reach here 
-                self.x_g = None
-                self.y_g = None
-                self.theta_g = None
-                cmd_x_dot = 0
-                cmd_theta_dot = 0
-            else:
-                ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
-                angs = wrapToPi(np.array([ang-th_rot, ang])) 
-                alpha = angs[0] 
-                delta = angs[1] 
+            ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
+            angs = wrapToPi(np.array([ang-th_rot, ang])) 
+            alpha = angs[0] 
+            delta = angs[1] 
 
-                V = K1*rho*np.cos(alpha) 
-                om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
-                cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
-                cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))   
+            V = K1*rho*np.cos(alpha) 
+            om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
+            cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
+            cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))   
             # From pervious master, not sure what is this for
             # elif rho>rho_thresh:
             #     V = K1*rho
