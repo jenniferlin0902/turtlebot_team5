@@ -23,7 +23,7 @@ TIMEOUT = np.inf
 V_MAX = 0.2
 
 # maximim angular velocity
-W_MAX = 1
+W_MAX = 0.01
 
 # whether goal is from rviz
 # need to find a better way to get this info
@@ -137,7 +137,9 @@ class PoseController:
             R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
             rel_coords_rot = np.dot(R,rel_coords)
 
-            th_rot = self.theta-self.theta_g 
+            #th_rot = self.theta-self.theta_g 
+            th_rot = self.theta-self.get_direction(self.x_g,self.y_g)
+            
             rho = linalg.norm(rel_coords) 
             ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
             angs = wrapToPi(np.array([ang-th_rot, ang])) 
@@ -150,15 +152,16 @@ class PoseController:
             # if alpha>alpha_thresh:
             #     om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta) 
             # elif rho>rho_thresh:
-            om = 0
-            
-            V = K1*rho
+            # om = 0
+            # V = K1*rho
+
+            #NEXT STEP: DIFF BETWEEN THETA AND DIrection
 
 
 
 
-            #V = K1*rho*np.cos(alpha) 
-            #om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
+            V = K1*rho*np.cos(alpha) 
+            om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
             
 
 
@@ -193,7 +196,7 @@ class PoseController:
 
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
             err_yaw = wrapToPi(theta_target - self.theta)
-            if np.fabs(err_yaw) > FIX_YAW_THREHSHOLD:
+            if np.fabs(err_yaw) > FIX_YAW_THREHSHOLD_INIT:
                 debug("yaw error = %f", err_yaw)
                 cmd_theta_dot = 0.45 if err_yaw > 0 else -0.45
         else:
