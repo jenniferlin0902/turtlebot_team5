@@ -23,17 +23,17 @@ TIMEOUT = np.inf
 V_MAX = 0.2
 
 # maximim angular velocity
-W_MAX = 0.01
+W_MAX = 0.5
 
 # whether goal is from rviz
 # need to find a better way to get this info
 RVIZ = 1
 
 DIST_PREC = 0.06
-YAW_PREC = 0.2
+YAW_PREC = np.pi*(10/180.0)
+YAW_STEP_SMALL = 0.1
+YAW_STEP_LARGE = 0.5
 
-FIX_YAW_THREHSHOLD_INIT = np.pi * (10/180.0) 
-FIX_YAW_THREHSHOLD_FINAL = np.pi * (10/180.0) 
 # Robot will fix its direction first if it is off by more than FIX_YAW_THRESHOLD degree
 
 # if sim is True/using gazebo, therefore want to subscribe to /gazebo/model_states\
@@ -137,42 +137,22 @@ class PoseController:
             R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
             rel_coords_rot = np.dot(R,rel_coords)
 
-            #th_rot = self.theta-self.theta_g 
-            th_rot = self.theta-self.get_direction(self.x_g,self.y_g)
-            
             rho = linalg.norm(rel_coords) 
             ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
             angs = wrapToPi(np.array([ang-th_rot, ang])) 
             alpha = angs[0] 
             delta = angs[1] 
-            # V=0
-            # om=0
 
-            #ZACH ADDED THIS:
-            # if alpha>alpha_thresh:
-            #     om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta) 
-            # elif rho>rho_thresh:
-            # om = 0
-            # V = K1*rho
-
-            #NEXT STEP: DIFF BETWEEN THETA AND DIrection
-
-
-
-
-            V = K1*rho*np.cos(alpha) 
-            om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
-            
-
-
-
+            th_rot = self.theta-self.get_direction(self.x_g,self.y_g)
+            if th_rot < YAW_PREC:
+                V = K1*rho
+                om = 0
+            else:
+                debug("Deviate from direction, fixing yaw")
+                V = K1*cos(alpha)
+                om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)             
             cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
-            cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))   
-            # From pervious master, not sure what is this for
-            # elif rho>rho_thresh:
-            #     V = K1*rho
-                # Apply saturation limits
-
+            cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
             debug("ctrl x dot {}, theta dot {}".format(cmd_x_dot, cmd_theta_dot))
 
         else:
@@ -196,9 +176,13 @@ class PoseController:
 
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
             err_yaw = wrapToPi(theta_target - self.theta)
-            if np.fabs(err_yaw) > FIX_YAW_THREHSHOLD_INIT:
+            if np.fabs(err_yaw) > YAW_PREC:
                 debug("yaw error = %f", err_yaw)
-                cmd_theta_dot = 0.45 if err_yaw > 0 else -0.45
+                if np.fabs(err_yaw) > 0.5:
+                    cmd_theta_dot = YAW_STEP_LARGE if err_yaw > 0 else -YAW_STEP_LARGE
+                else:
+                    cmd_theta_dot = YAW_STEP_SMALL if err_yaw > 0 else -YAW_STEP_SMALL
+
         else:
             # haven't received a command in a while so stop
             debug("PoseController: No command in a while, commanding zero controls")
@@ -242,7 +226,7 @@ class PoseController:
             elif self.state == PCState.FIX_YAW_INIT:
                 self.update_current_pose()            
                 ctrl_output, err_yaw = self.get_ctrl_output_fix_yaw(self.get_direction(self.x_g, self.y_g))
-                if err_yaw < FIX_YAW_THREHSHOLD_INIT:
+                if err_yaw < YAW_PREC:
                     self.change_state(PCState.MOVE_FWD)
 
             elif self.state == PCState.MOVE_FWD:
@@ -254,7 +238,7 @@ class PoseController:
             elif self.state == PCState.FIX_YAW_FINAL:
                 self.update_current_pose()
                 ctrl_output, err_yaw = self.get_ctrl_output_fix_yaw(self.theta_g)
-                if err_yaw < FIX_YAW_THREHSHOLD_FINAL:
+                if err_yaw < YAW_PREC:
                     self.change_state(PCState.IDLE)
 
             self.pub.publish(ctrl_output)

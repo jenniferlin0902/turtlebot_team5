@@ -46,6 +46,57 @@ class StochOccupancyGrid2D(object):
     def snap_to_grid(self, x):
         return (self.resolution*round(x[0]/self.resolution), self.resolution*round(x[1]/self.resolution))
 
+
+    def occupancy_index(self, grid_x, grid_y):
+        """Given x, y into a grid, return index into self.occupancy list."""
+        return grid_y * self.width + grid_x
+
+
+    def grid_index(self, index):
+        """Given index in self.occupancy list, return x, y indices in grid."""
+        x = index % self.width
+        y = index / self.width
+        return x, y
+
+    def add_occupancy(self, window = 5):
+        occupied_indices = self.probs > self.thresh
+        num_positions = len(self.probs)
+
+        for index, prob in enumerate(occupied_indices):
+
+            lower_bound = index % self.width
+            upper_bound = self.width - lower_bound
+            for j in range(window):
+                for i in range(window):
+
+                    if i < lower_bound:
+                        index_down_left = index - j*self.width - i
+                        if index_down_left > 0:
+                            self.probs[index_down_left] += prob
+
+                        index_down_right = index - j*self.width + i
+                        if index_down_right > 0:
+                            self.probs[index_down_right] += prob
+
+                    if i < upper_bound:
+                        index_up_left = index + j*self.width - i
+                        if index_up_left > 0:
+                            self.probs[index_up_left] += prob
+
+                        index_up_right = index + j*self.width + i
+                        if index_up_right > 0:
+                            self.probs[index_up_right] += prob
+                            
+                        # self.probs[index + i] += prob
+
+                    # index_up = index + j*self.width
+                    # if index_up < num_positions:
+                    #     self.probs[index_up] += prob
+
+                    # index_down = index - j*self.width
+                    # if index_down > 0:
+                    #     self.probs[index_down] += prob
+
     def is_free(self, state):
         # combine the probabilities of each cell by assuming independence
         # of each estimation
