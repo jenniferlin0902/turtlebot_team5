@@ -176,7 +176,7 @@ class PoseController:
 
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
             err_yaw = wrapToPi(theta_target - self.theta)
-            if np.fabs(err_yaw) > FIX_YAW_THREHSHOLD:
+            if np.fabs(err_yaw) > FIX_YAW_THREHSHOLD_INIT:
                 debug("yaw error = %f", err_yaw)
                 cmd_theta_dot = 0.45 if err_yaw > 0 else -0.45
         else:
@@ -222,7 +222,7 @@ class PoseController:
 
             elif self.state == PCState.FIX_YAW_INIT:
                 self.update_current_pose()            
-                ctrl_output, err_yaw = self.get_ctrl_output_fix_yaw(            self.get_direction(self.x_g, self.y_g))
+                ctrl_output, err_yaw = self.get_ctrl_output_fix_yaw(self.get_direction(self.x_g, self.y_g))
                 if err_yaw < FIX_YAW_THREHSHOLD_INIT:
                     self.change_state(PCState.MOVE_FWD)
 

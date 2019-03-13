@@ -9,9 +9,9 @@ from gazebo_msgs.msg import ModelStates
 from std_msgs.msg import Float32MultiArray, String
 from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
-from asl_turtlebot.msg import DetectedObject, ObjectLocationList
+from turtlebot_team5.msg import DetectedObject, ObjectLocationList
 from timer import Timer
-from utils import log, error
+from utils import log, error, debug
 
 # ==================================================================================================
 # Constants.
@@ -174,9 +174,11 @@ class Supervisor:
     def delivery_request_callback(self, msg):
         items = msg.data.lower().strip().split(",")
         if len(items) > 0:
+            debug("delivery_request_callback: Got {} items:".format(len(items)), items)
             self.delivery_requests.extend(items)
 
     def object_location_callback(self, msg):
+        debug("object_location_callback: Got {} locations".format(len(msg.locations)))
         for loc in msg.locations:
             self.obj_coordinates[loc.name] = (loc.x, loc.y)
 
@@ -197,13 +199,13 @@ class Supervisor:
         """Sets the current mode in thread safe way."""
         self._mode_lock.acquire()
         if self.mode != mode:
-            log("State machine: exiting", self.mode, "--> entering", mode)
+            log("State machine: exiting", self.mode.__name__, "--> entering", mode.__name__)
             self.mode.exit(self)
             self.mode = mode
             self.mode.enter(self)
-            log("State machine: running", self.mode)
+            log("State machine: running", self.mode.__name__)
         else:
-            log("State machine: already running", self.mode)
+            log("State machine: already running", self.mode.__name__)
         self._mode_lock.release()
 
     def run(self):
@@ -248,12 +250,6 @@ class Mode(object):
     def exit(robot):
         pass
 
-    def __str__(self):
-        return type(self).__name__
-
-    def __repr__(self):
-        return str(self)
-
 
 class ManualMode(Mode):
     """Manually drive the robot around by clicking in Rviz."""
@@ -285,10 +281,12 @@ class RequestMode(Mode):
     @staticmethod
     def run(robot):
         if len(robot.delivery_requests) > 0:
+            debug("RequestMode: There are {} delivery requests.".format(len(robot.delivery_requests)))
             curr_request = robot.delivery_requests.pop(0)
             if curr_request not in robot.obj_coordinates:
-                error("Invalid request specified:", curr_request)
+                error("RequestMode: Invalid request specified:", curr_request)
             else:
+                debug("RequestMode: Valid request specified:", curr_request)
                 robot.nav_goal_pose_x, robot.nav_goal_pose_y = robot.obj_coordinates[curr_request]
                 robot.set_mode(NavMode)
 
@@ -311,7 +309,9 @@ class NavMode(Mode):
     @staticmethod
     def run(robot):
         # Wait until path has been computed
-        if robot.path is None: return
+        if robot.path is None:
+            debug("NavMode: No path computed yet.")
+            return
 
         # Currently executing step
         curr_step = robot.path[robot.path_index]
@@ -323,9 +323,11 @@ class NavMode(Mode):
 
         if robot.close_to(curr_step):
             # Finished executing step so move on to next.
+            debug("NavMode: Finished executing step, so moving to next.")
             robot.path_index += 1
         if robot.path_index >= len(robot.path):
             # Finished executing all steps.
+            debug("NavMode: Finished executing all steps.")
             robot.path = None
             robot.path_index = 0
             robot.set_mode(RequestMode)

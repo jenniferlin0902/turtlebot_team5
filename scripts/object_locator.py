@@ -102,9 +102,9 @@ class ObjectLocator:
     def publish_object_location(self):
         if self.objects:
             obj_list = ObjectLocationList()
-
             for name, obj in self.objects.iteritems():
                 obj_loc = ObjectLocation()
+                obj_loc.name = name
                 obj_loc.x, obj_loc.y = obj[0]
                 obj_loc.count = obj[1]
                 obj_list.locations.append(obj_loc)
@@ -113,7 +113,7 @@ class ObjectLocator:
 
     def run(self):
         rospy.loginfo("Object locator started")
-        rate = rospy.Rate(10) # 10 Hz
+        rate = rospy.Rate(4)  # 4 Hz
         while not rospy.is_shutdown():
             self.publish_object_location()
             rate.sleep()
