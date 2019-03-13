@@ -143,9 +143,26 @@ class PoseController:
             angs = wrapToPi(np.array([ang-th_rot, ang])) 
             alpha = angs[0] 
             delta = angs[1] 
+            # V=0
+            # om=0
 
-            V = K1*rho*np.cos(alpha) 
-            om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
+            #ZACH ADDED THIS:
+            # if alpha>alpha_thresh:
+            #     om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta) 
+            # elif rho>rho_thresh:
+            om = 0
+            
+            V = K1*rho
+
+
+
+
+            #V = K1*rho*np.cos(alpha) 
+            #om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)   
+            
+
+
+
             cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
             cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))   
             # From pervious master, not sure what is this for
