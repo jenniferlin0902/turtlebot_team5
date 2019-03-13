@@ -45,6 +45,24 @@ log("supervisor settings:")
 log("use_gazebo:", use_gazebo)
 log("mapping:", mapping)
 
+
+# ==================================================================================================
+# Helper functions.
+
+def convert_pose_to_tuple(pose):
+    x = pose.position.x
+    y = pose.position.y
+    quaternion = (
+        pose.orientation.x,
+        pose.orientation.y,
+        pose.orientation.z,
+        pose.orientation.w
+    )
+    euler = tf.transformations.euler_from_quaternion(quaternion)
+    theta = euler[2]
+    return x, y, theta
+
+
 # ==================================================================================================
 # Supervisor node.
 
@@ -66,20 +84,20 @@ class Supervisor:
         self.y = 0
         self.theta = 0
 
-        # Robot final destination.
+        # Current robot destination.
         self.nav_goal_pose_x = None
         self.nav_goal_pose_y = None
         self.nav_goal_pose_theta = None
 
-        # Navigation path containing steps towards destination.
+        # Navigation path containing steps towards current destination.
         self.path = None
         self.path_index = 0
 
-        # Detected objects.
-        self.food_coordinates = {}  # "name" --> (x, y)
+        # Current delivery request queue.
+        self.delivery_requests = []
 
-        # Logging helpers.
-        self._last_mode_printed = None
+        # Detected objects.
+        self.obj_coordinates = {}  # "name" --> (x, y)
 
         # ==========================================================================================
         # Subscribers.
@@ -95,6 +113,9 @@ class Supervisor:
 
         # Rviz pose setting through click.
         rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)
+
+        # Detected food items to pick up.
+        rospy.Subscriber('/delivery_request', String, self.delivery_request_callback)
 
         # Detected stop sign.
         # rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
@@ -115,20 +136,13 @@ class Supervisor:
     # Subscriber callbacks.
 
     def state_machine_callback(self, msg):
-        cmd = msg.data.lower()
+        cmd = msg.data.lower().strip()
         if cmd == "idle":
-            self.mode = IdleMode
+            self.set_mode(IdleMode)
         elif cmd == "manual":
-            self.mode = ManualMode
-        elif cmd.startswith("nav"):
-            food_name = cmd.split(":")[1]
-            if food_name not in self.food_coordinates:
-                error("Invalid food specified:", food_name)
-            else:
-                target_coordinates = self.food_coordinates[food_name]
-                self.nav_goal_pose_x = target_coordinates[0]
-                self.nav_goal_pose_y = target_coordinates[1]
-                self.mode = NavMode
+            self.set_mode(ManualMode)
+        elif cmd == "request":
+            self.set_mode(RequestMode)
         else:
             error("Invalid command to state_machine_callback:", cmd)
 
@@ -136,40 +150,15 @@ class Supervisor:
         if self.mode != NavMode:
             error("Got to nav_path_callback while in mode:", self.mode)
             return
-
-        self.path = msg
+        self.path = [convert_pose_to_tuple(ps.pose) for ps in msg.poses]  # [(x, y, theta)]
         self.path_index = 0
-
-    # def stop_sign_detected_callback(self, msg):
-    #     '''
-    #         Callback for when the detector has found a stop sign. Note that
-    #         A distance of 0 can mean that the lidar did not pickup the stop sign at all
-    #     '''
-    #     # distance of the stop sign
-    #     dist = msg.distance
-    #
-    #     log("IN STOP_SIGN_DETECTED_CALLBACK.")
-    #     log("distance: ", dist)
-    #
-    #     # if close enough and in nav mode, stop
-    #     if dist > 0 and dist < STOP_MIN_DIST:
-    #         self.init_stop_sign()
 
     def gazebo_callback(self, msg):
         pose = msg.pose[msg.name.index("turtlebot3_burger")]
         twist = msg.twist[msg.name.index("turtlebot3_burger")]
-        self.x = pose.position.x
-        self.y = pose.position.y
-        quaternion = (
-                    pose.orientation.x,
-                    pose.orientation.y,
-                    pose.orientation.z,
-                    pose.orientation.w)
-        euler = tf.transformations.euler_from_quaternion(quaternion)
-        self.theta = euler[2]
+        self.x, self.y, self.theta = convert_pose_to_tuple(pose)
 
     def rviz_goal_callback(self, msg):
-        """ callback for a pose goal sent through rviz """
         if self.mode != ManualMode:
             error("Got to rviz_goal_callback while in mode:", self.mode)
             return
@@ -177,31 +166,25 @@ class Supervisor:
         origin_frame = "/map" if mapping else "/odom"
         try:
             nav_pose_origin = self.trans_listener.transformPose(origin_frame, msg)
-            self.nav_goal_pose_x = nav_pose_origin.pose.position.x
-            self.nav_goal_pose_y = nav_pose_origin.pose.position.y
-            quaternion = (
-                    nav_pose_origin.pose.orientation.x,
-                    nav_pose_origin.pose.orientation.y,
-                    nav_pose_origin.pose.orientation.z,
-                    nav_pose_origin.pose.orientation.w)
-            euler = tf.transformations.euler_from_quaternion(quaternion)
-            self.nav_goal_pose_theta = euler[2]
+            self.nav_goal_pose_x, self.nav_goal_pose_y, self.nav_goal_pose_theta = \
+                convert_pose_to_tuple(nav_pose_origin.pose)
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             pass
+
+    def delivery_request_callback(self, msg):
+        items = msg.data.lower().strip().split(",")
+        if len(items) > 0:
+            self.delivery_requests.extend(items)
 
     # ==============================================================================================
     # Robot state query functions.
 
-    def close_to(self, x, y, theta):
+    def close_to(self, point):
         """Check if the robot is at a pose within some threshold."""
+        x, y, theta = point
         return (abs(x - self.x) < POS_EPS and
                 abs(y - self.y) < POS_EPS and
                 abs(theta - self.theta) < THETA_EPS)
-
-    def goal_reached(self):
-        """If nav_goal_pose_x, nav_goal_pose_y, nav_goal_pose_theta not set, returns False."""
-        if self.nav_goal_pose_x is None: return True
-        return self.close_to(self.nav_goal_pose_x, self.nav_goal_pose_y, self.nav_goal_pose_theta)
 
     # ==============================================================================================
     # State machine.
@@ -209,25 +192,28 @@ class Supervisor:
     def set_mode(self, mode):
         """Sets the current mode in thread safe way."""
         self._mode_lock.acquire()
-        self.mode = mode
-        if self._last_mode_printed != mode:
-            log("Current mode set to:", mode)
-            self._last_mode_printed = mode
+        if self.mode != mode:
+            log("State machine: exiting", self.mode, "--> entering", mode)
+            self.mode.exit(self)
+            self.mode = mode
+            self.mode.enter(self)
+            log("State machine: running", self.mode)
         else:
-            log("Current mode already set to:", mode)
+            log("State machine: already running", self.mode)
         self._mode_lock.release()
 
     def run(self):
         """Loop to execute state machine logic."""
         rate = rospy.Rate(10)  # 10 Hz
+        self.mode.enter(self)
         while not rospy.is_shutdown():
             # Get location from mapping if using real robot.
             if not use_gazebo:
                 try:
                     origin_frame = "/map" if mapping else "/odom"
-                    (translation, rotation) = self.trans_listener.lookupTransform(origin_frame,
-                                                                                  '/base_footprint',
-                                                                                  rospy.Time(0))
+                    (translation, rotation) = self.trans_listener.lookupTransform(
+                        origin_frame, '/base_footprint', rospy.Time(0)
+                    )
                     self.x = translation[0]
                     self.y = translation[1]
                     euler = tf.transformations.euler_from_quaternion(rotation)
@@ -263,6 +249,7 @@ class Mode(object):
 
 
 class ManualMode(Mode):
+    """Manually drive the robot around by clicking in Rviz."""
     @staticmethod
     def run(robot):
         if robot.nav_goal_pose_x is not None:
@@ -274,37 +261,67 @@ class ManualMode(Mode):
 
 
 class IdleMode(Mode):
+    """Just sit there, not moving."""
     @staticmethod
     def run(robot):
         msg = Twist()
         robot.cmd_vel_publisher.publish(msg)
 
 
-
-class NavMode(Mode):
-    @staticmethod
-    def run(robot):
-        if not robot.goal_reached():
-            next_goal = robot.path[robot.path_index]
-            robot.path_index += 1
-
-            msg = Pose2D()
-            msg.x = next_goal[0]
-            msg.y = next_goal[1]
-            msg.theta = next_goal[2]
-            robot.step_goal_publisher.publish(msg)
-
-
-class StopMode(Mode):
-    timer = None
-
+class RequestMode(Mode):
+    """Wait for requests to come in, then fulfill them one by one."""
     @staticmethod
     def enter(robot):
-        pass
+        msg = Twist()
+        robot.cmd_vel_publisher.publish(msg)
 
     @staticmethod
     def run(robot):
-        pass
+        if len(robot.delivery_requests) > 0:
+            curr_request = robot.delivery_requests.pop(0)
+            if curr_request not in robot.obj_coordinates:
+                error("Invalid request specified:", curr_request)
+            else:
+                robot.nav_goal_pose_x, robot.nav_goal_pose_y = robot.obj_coordinates[curr_request]
+                robot.set_mode(NavMode)
+
+
+class NavMode(Mode):
+    """Navigate to a particular object on the map."""
+    @staticmethod
+    def enter(robot):
+        if robot.path is not None:
+            error("Entering NavMode when robot.path is not None")
+        if robot.nav_goal_pose_x is None:
+            error("Entering NavMode when robot.nav_goal_pose is not set.")
+
+        msg = Pose2D()
+        msg.x = robot.nav_goal_pose_x
+        msg.y = robot.nav_goal_pose_y
+        msg.theta = robot.nav_goal_pose_theta  # Does not matter
+        robot.nav_goal_publisher.publish(msg)
+
+    @staticmethod
+    def run(robot):
+        # Wait until path has been computed
+        if robot.path is None: return
+
+        # Currently executing step
+        curr_step = robot.path[robot.path_index]
+        msg = Pose2D()
+        msg.x = curr_step[0]
+        msg.y = curr_step[1]
+        msg.theta = curr_step[2]
+        robot.step_goal_publisher.publish(msg)
+
+        if robot.close_to(curr_step):
+            # Finished executing step so move on to next.
+            robot.path_index += 1
+        if robot.path_index >= len(robot.path):
+            # Finished executing all steps.
+            robot.path = None
+            robot.path_index = 0
+            robot.set_mode(RequestMode)
 
 
 class CrossMode(Mode):
@@ -316,174 +333,3 @@ class CrossMode(Mode):
 if __name__ == '__main__':
     sup = Supervisor()
     sup.run()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# if self.goal_reached():             # If goal reached, idle
-# state = Mode.IDLE
-# elif self.stop_sign_detected():     # If stop sign detected, go to mode.STOP
-# state = Mode.STOP
-# else:                               # If normal, continue driving
-# self.go_to_pose()
-
-# # '''
-# #    NAV
-# # '''
-# elif state == Mode.NAV:
-#     if self.goal_reached():             # If goal reached, idle
-#         state = Mode.IDLE
-#     elif self.stop_sign_detected():     # If stop sign detected, go to mode.STOP
-#         state = Mode.STOP
-#     else:                               # If normal, continue driving
-#         self.go_to_pose()
-
-# '''
-#    STOP
-# '''
-# elif state == Mode.STOP:
-#     if self.is_currently_stopping():    # If currently stopping
-#         if self.is_done_stopping():     # If done, end then go to CROSS
-#             self.end_stopping()
-#             state = Mode.CROSS
-#         else:                           # If not done, continue idling
-#             self.idle()
-#     else:                               # If not currently stopping, start
-#         self.start_stopping()
-
-# '''
-#    CROSS
-# '''
-# elif state == Mode.CROSS:
-#     if self.is_currently_crossing():    # If currently crossing
-#         if self.is_done_crossing():     # If done, end then go to POSE
-#             self.end_crossing()
-#             state = Mode.NAV
-#         elif self.goal_reached():       # If goal reached, idle
-#             self.end_crossing()
-#             state = Mode.IDLE
-#         else:                           # If not done, continue driving
-#             self.go_to_pose()
-
-#     else:                               # If not currently crossing, start
-#         self.start_crossing
-
-# ####################### Stopping #######################
-    #
-    # def is_currently_stopping(self):
-    #     '''
-    #         Check if currently stopping.
-    #         If value has not been set yet, set it.
-    #     '''
-    #     return self._is_currently_stopping
-    #
-    # def start_stopping(self):
-    #     '''
-    #         Set flag. Begin timer.
-    #     '''
-    #     if self.is_currently_stopping():
-    #         raise Exception("Called start_stopping() while already stopping.")
-    #     self._is_currently_stopping = True
-    #     self.timers.start_timer(Timers.STOP_TIMER)
-    #
-    # def end_stopping(self):
-    #     '''
-    #         Set _is_currently_stopping flag to False.
-    #         Clear stop_sign_detected flag.
-    #     '''
-    #     if not self.is_currently_stopping():
-    #         raise Exception("Called end_stopping() while not stopping.")
-    #     self._is_currently_stopping = False
-    #     self.clear_stop_sign_detected()
-    #
-    # def is_done_stopping(self):
-    #     '''
-    #         Check if stopping timer is finished.
-    #     '''
-    #     return self.timers.timer_finished(Timers.STOP_TIMER)
-
-
-
-    # ####################### Crossing #######################
-    #
-    # def is_currently_crossing(self):
-    #     '''
-    #         Check if currently crossing.
-    #         If value has not been set yet, set it.
-    #     '''
-    #     return self._is_currently_crossing
-    #
-    # def start_crossing(self):
-    #     '''
-    #         Set flag. Begin timer.
-    #     '''
-    #     if self.is_currently_crossing():
-    #         raise Exception("Called start_crossing() while already crossing.")
-    #     self._is_currently_crossing = True
-    #     self.timers.start_timer(Timers.CROSS_TIMER)
-    #
-    # def end_crossing(self):
-    #     '''
-    #         Set _is_currently_crossing flag to False.
-    #     '''
-    #     if not self.is_currently_crossing():
-    #         raise Exception("Called end_crossing() while not crossing.")
-    #     self._is_currently_crossing = False
-    #
-    # def is_done_crossing(self):
-    #     '''
-    #         Check if crossing timer is finished.
-    #     '''
-    #     return self.timers.timer_finished(Timers.CROSS_TIMER)
-    #
-    #
-    # ####################### Stop Sign Detection #######################
-    #
-    # def stop_sign_detected(self):
-    #     '''
-    #         If stop sign was detected, reset value
-    #     '''
-    #     if self._stop_sign_detected:
-    #         print("FSM DETECTED STOP SIGN.")
-    #         self.clear_stop_sign_detected()
-    #         return True
-    #     else:
-    #         return False
-    #
-    #
-    # def init_stop_sign(self):
-    #     '''
-    #         Callback function. Do not use in State Machine.
-    #     '''
-    #     print("STOP SIGN DETECTED.")
-    #     self._stop_sign_detected = True
-    #
-    #
-    # def clear_stop_sign_detected(self):
-    #     '''
-    #         Setter for _stop_sign_detected. DO use in State Machine.
-    #     '''
-    #     self._stop_sign_detected = False
-    #
-    #
-    #
-
-# def get_object_location(self, msg):
-#         '''
-#             Get's location from ObjectDetected object.
-#         '''
-#         if type(msg) != ObjectDetected:
-#             raise Exception("Error: Invalid msg type passed into get_object_locaiton(). Requires ObjectedDetected.")
-#
-#         dist = msg.distance
-#         # TODO: FINISH THIS
