@@ -80,28 +80,26 @@ class Navigator:
         self.V_prev = 0
         self.V_prev_t = rospy.get_rostime()
 
-        self.nav_path_pub = rospy.Publisher('/cmd_path', Path, queue_size=10)
-        # self.nav_pose_pub = rospy.Publisher('/cmd_pose', Pose2D, queue_size=10)
+        self.nav_path_pub = rospy.Publisher('/nav_path', Path, queue_size=10)
         self.nav_pathsp_pub = rospy.Publisher('/cmd_path_sp', PoseStamped, queue_size=10)
-        # self.nav_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         self.trans_listener = tf.TransformListener()
+
+        # Current occupancy grid and metadata.
         rospy.Subscriber('/map', OccupancyGrid, self.map_callback)
-        rospy.Subscriber('/map_metadata', MapMetaData, self.map_md_callback)
+        rospy.Subscriber('/map_metadata', MapMetaData, self.map_metadata_callback)
 
         # Listen for final destination pose
-        rospy.Subscriber('/nav_goal_pose', Pose2D, self.cmd_nav_callback)
+        rospy.Subscriber('/nav_goal_pose', Pose2D, self.nav_goal_pose_callback)
 
-        # Publish intermediate poses. Pose_Controller listens to this
-        # self.nav_pose_pub = rospy.Publisher('/step_goal_pose', Pose2D, queue_size=10)
 
-    def cmd_nav_callback(self, data):
+    def nav_goal_pose_callback(self, data):
         self.x_g = data.x
         self.y_g = data.y
         self.theta_g = data.theta
         self.run_navigator()
 
-    def map_md_callback(self, msg):
+    def map_metadata_callback(self, msg):
         self.map_width = msg.width
         self.map_height = msg.height
         self.map_resolution = msg.resolution
