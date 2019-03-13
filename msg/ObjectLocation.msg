@@ -1,3 +1,4 @@
 string name
-Pose2D location
-float64 confidence
+float64 x
+float64 y
+int32 confidence
