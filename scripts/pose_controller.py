@@ -112,7 +112,7 @@ class PoseController:
         self.theta_g = data.theta
 
         self.cmd_pose_time = rospy.get_rostime()
-        log("Got new goal x:{} y:{}, theta:{}".format(self.x_g, self.y_g, self.theta_g))
+        log("PoseController: Got new goal x:{} y:{}, theta:{}".format(self.x_g, self.y_g, self.theta_g))
         # start moving, always turn first
         self.change_state(PCState.FIX_YAW_INIT)
 
@@ -177,7 +177,7 @@ class PoseController:
 
         else:
             # haven't received a command in a while so stop
-            debug("Pose controller TIMEOUT: commanding zero controls")
+            debug("PoseController: No command in a while, commanding zero controls")
             cmd_x_dot = 0
             cmd_theta_dot = 0
 
@@ -201,7 +201,7 @@ class PoseController:
                 cmd_theta_dot = 0.45 if err_yaw > 0 else -0.45
         else:
             # haven't received a command in a while so stop
-            debug("Pose controller TIMEOUT: commanding zero controls")
+            debug("PoseController: No command in a while, commanding zero controls")
             cmd_x_dot = 0
             cmd_theta_dot = 0
             err_yaw = 0
@@ -227,7 +227,6 @@ class PoseController:
         return cmd
 
     def run(self):
-        log("Pose Controller started")
         rate = rospy.Rate(10) # 10 Hz
         while not rospy.is_shutdown():
             # don't start until we received the first goal 

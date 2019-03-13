@@ -11,14 +11,14 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
 from turtlebot_team5.msg import DetectedObject, ObjectLocationList
 from timer import Timer
-from utils import log, error, debug
+from utils import log, error, debug, warn
 
 # ==================================================================================================
 # Constants.
 
 # Threshold (m) for robot being "close enough" to a given position/theta for it to be considered
 # there.
-POS_EPS = .1
+POS_EPS = .2
 THETA_EPS = .3
 
 # Minimum distance (m) from a stop sign at which to obey it by initiating stopping behavior.
@@ -93,6 +93,9 @@ class Supervisor:
         self.path = None
         self.path_index = 0
 
+        # Last time stopped at stop sign, do no stopping again for a period.
+        self.last_time_stopped = rospy.get_rostime()
+
         # Current delivery request queue.
         self.delivery_requests = []
 
@@ -144,18 +147,18 @@ class Supervisor:
         elif cmd == "request":
             self.set_mode(RequestMode)
         else:
-            error("Invalid command to state_machine_callback:", cmd)
+            warn("Invalid command to state_machine_callback:", cmd)
 
     def nav_path_callback(self, msg):
         if self.mode != NavMode:
             error("Got to nav_path_callback while in mode:", self.mode)
             return
+
         self.path = [convert_pose_to_tuple(ps.pose) for ps in msg.poses]  # [(x, y, theta)]
         self.path_index = 0
 
     def gazebo_callback(self, msg):
         pose = msg.pose[msg.name.index("turtlebot3_burger")]
-        twist = msg.twist[msg.name.index("turtlebot3_burger")]
         self.x, self.y, self.theta = convert_pose_to_tuple(pose)
 
     def rviz_goal_callback(self, msg):
@@ -178,19 +181,27 @@ class Supervisor:
             self.delivery_requests.extend(items)
 
     def object_location_callback(self, msg):
-        debug("object_location_callback: Got {} locations".format(len(msg.locations)))
+        debug("object_location_callback: Got {} locations.".format(len(msg.locations)))
         for loc in msg.locations:
             self.obj_coordinates[loc.name] = (loc.x, loc.y)
 
     # ==============================================================================================
-    # Robot state query functions.
+    # Robot state helper functions.
 
-    def close_to(self, point):
+    def is_close_to(self, point):
         """Check if the robot is at a pose within some threshold."""
         x, y, theta = point
         return (abs(x - self.x) < POS_EPS and
                 abs(y - self.y) < POS_EPS and
                 abs(theta - self.theta) < THETA_EPS)
+
+    def is_detecting_stop_sign(self):
+        # TODO: Check if any stop sign is within active area for triggering.
+        return False
+
+    def stop_moving(self):
+        msg = Twist()
+        self.cmd_vel_publisher.publish(msg)
 
     # ==============================================================================================
     # State machine.
@@ -199,13 +210,13 @@ class Supervisor:
         """Sets the current mode in thread safe way."""
         self._mode_lock.acquire()
         if self.mode != mode:
-            log("State machine: exiting", self.mode.__name__, "--> entering", mode.__name__)
+            log("StateMachine: exiting", self.mode.__name__, "--> entering", mode.__name__)
             self.mode.exit(self)
             self.mode = mode
             self.mode.enter(self)
-            log("State machine: running", self.mode.__name__)
+            log("StateMachine: running", self.mode.__name__)
         else:
-            log("State machine: already running", self.mode.__name__)
+            log("StateMachine: already running", self.mode.__name__)
         self._mode_lock.release()
 
     def run(self):
@@ -267,16 +278,23 @@ class IdleMode(Mode):
     """Just sit there, not moving."""
     @staticmethod
     def run(robot):
-        msg = Twist()
-        robot.cmd_vel_publisher.publish(msg)
+        msg = Pose2D()
+        msg.x = robot.x
+        msg.y = robot.y
+        msg.theta = robot.theta
+        robot.step_goal_publisher.publish(msg)
+
+        # TODO: !!!!! Need to make pose controller not talk directly to wheels. Perhaps send back
+        # the velocities that we can choose to publish.
+        robot.stop_moving()
 
 
 class RequestMode(Mode):
     """Wait for requests to come in, then fulfill them one by one."""
     @staticmethod
     def enter(robot):
-        msg = Twist()
-        robot.cmd_vel_publisher.publish(msg)
+        debug("RequestMode: Stopping movement until there are delivery requests.")
+        robot.stop_moving()
 
     @staticmethod
     def run(robot):
@@ -284,7 +302,7 @@ class RequestMode(Mode):
             debug("RequestMode: There are {} delivery requests.".format(len(robot.delivery_requests)))
             curr_request = robot.delivery_requests.pop(0)
             if curr_request not in robot.obj_coordinates:
-                error("RequestMode: Invalid request specified:", curr_request)
+                warn("RequestMode: Invalid request specified:", curr_request)
             else:
                 debug("RequestMode: Valid request specified:", curr_request)
                 robot.nav_goal_pose_x, robot.nav_goal_pose_y = robot.obj_coordinates[curr_request]
@@ -292,13 +310,12 @@ class RequestMode(Mode):
 
 
 class NavMode(Mode):
-    """Navigate to a particular object on the map."""
+    """Navigate to a particular object on the map. Each time we enter this state, we will re-compute
+    the path to the nav_goal_pose."""
     @staticmethod
     def enter(robot):
-        if robot.path is not None:
-            error("Entering NavMode when robot.path is not None")
         if robot.nav_goal_pose_x is None:
-            error("Entering NavMode when robot.nav_goal_pose is not set.")
+            error("NavMode: Entering when robot.nav_goal_pose is not set.")
 
         msg = Pose2D()
         msg.x = robot.nav_goal_pose_x
@@ -310,10 +327,10 @@ class NavMode(Mode):
     def run(robot):
         # Wait until path has been computed
         if robot.path is None:
-            debug("NavMode: No path computed yet.")
+            debug("NavMode: No path computed yet, waiting for navigator.")
             return
 
-        # Currently executing step
+        # Publish the currently executing step.
         curr_step = robot.path[robot.path_index]
         msg = Pose2D()
         msg.x = curr_step[0]
@@ -321,22 +338,42 @@ class NavMode(Mode):
         msg.theta = curr_step[2]
         robot.step_goal_publisher.publish(msg)
 
-        if robot.close_to(curr_step):
+        if robot.is_close_to(curr_step):
             # Finished executing step so move on to next.
             debug("NavMode: Finished executing step, so moving to next.")
             robot.path_index += 1
+
         if robot.path_index >= len(robot.path):
             # Finished executing all steps.
             debug("NavMode: Finished executing all steps.")
             robot.path = None
             robot.path_index = 0
             robot.set_mode(RequestMode)
+            return
+
+        if robot.is_detecting_stop_sign() and robot.last_time_stopped > CROSSING_TIME:
+            # Detecing new stop sign and window for ignoring has elapsed.
+            debug("NavMode: Detecting new stop sign.")
+            robot.set_mode(StopMode)
 
 
-class CrossMode(Mode):
+class StopMode(Mode):
+    """Stopping at stop sign for set amount of time. After stopping, will continue on navigation as
+    usual without reacting to the same stop sign."""
+    stop_timer = Timer(STOP_TIME)
+
+    @staticmethod
+    def enter(robot):
+        debug("StopMode: Stopping at stop sign.")
+        robot.stop_moving()
+        StopMode.stop_timer.start()
+
     @staticmethod
     def run(robot):
-        pass
+        if StopMode.stop_timer.is_finished():
+            debug("StopMode: Moving on from stop sign.")
+            robot.last_time_stopped = rospy.get_rostime()
+            robot.set_mode(NavMode)
 
 
 if __name__ == '__main__':

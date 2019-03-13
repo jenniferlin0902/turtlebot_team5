@@ -6,7 +6,6 @@ class Timer(object):
     def __init__(self, duration):
         self.start_time = None
         self.duration = duration  # Elapsed time (s).
-        return self
 
     def start(self):
         self.start_time = rospy.get_rostime()
