@@ -74,14 +74,14 @@ class StochOccupancyGrid2D(object):
                         if index_down_left > 0:
                             self.probs[index_down_left] += prob
 
-                        index_down_right = index - j*self.width + i
-                        if index_down_right > 0:
-                            self.probs[index_down_right] += prob
-
-                    if i < upper_bound:
                         index_up_left = index + j*self.width - i
                         if index_up_left > 0:
                             self.probs[index_up_left] += prob
+
+                    if i < upper_bound:
+                        index_down_right = index - j*self.width + i
+                        if index_down_right > 0:
+                            self.probs[index_down_right] += prob
 
                         index_up_right = index + j*self.width + i
                         if index_up_right > 0:
