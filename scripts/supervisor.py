@@ -9,7 +9,7 @@ from gazebo_msgs.msg import ModelStates
 from std_msgs.msg import Float32MultiArray, String
 from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
-from turtlebot_team5.msg import DetectedObject, ObjectLocationList
+from turtlebot_team5.msg import DetectedObject, ObjectLocationList, PoseControl
 from timer import Timer
 from utils import log, error, debug, warn
 import numpy as np
@@ -94,6 +94,10 @@ class Supervisor:
         self.path = None
         self.path_index = 0
 
+        # Current computed step commands.
+        self.step_cmd_vel = Twist()
+        self.step_is_done = False
+
         # Last time stopped at stop sign, do no stopping again for a period.
         self.last_time_stopped = rospy.get_rostime()
 
@@ -123,6 +127,9 @@ class Supervisor:
 
         # Detected object locations.
         rospy.Subscriber('/object_location', ObjectLocationList, self.object_location_callback)
+
+        # Control velocity and state from pose controller.
+        rospy.Subscriber('/step_cmd', PoseControl, self.step_cmd_callback)
 
         # ==========================================================================================
         # Publishers.
@@ -186,6 +193,12 @@ class Supervisor:
         debug("Supervisor: object_location_callback: Got {} locations.".format(len(msg.locations)))
         for loc in msg.locations:
             self.obj_coordinates[loc.name] = (loc.x, loc.y)
+
+    def step_cmd_callback(self, msg):
+        if msg.is_done != self.step_is_done:
+            debug("Supervisor: step_cmd_callback: Got command and is_done changed to", msg.is_done)
+        self.step_cmd_vel = msg.cmd_vel
+        self.step_is_done = msg.is_done
 
     # ==============================================================================================
     # Robot state helper functions.
@@ -290,19 +303,14 @@ class ManualMode(Mode):
             msg.theta = robot.nav_goal_pose_theta
             robot.step_goal_publisher.publish(msg)
 
+        # Move according to pose controller.
+        robot.cmd_vel_publisher.publish(robot.step_cmd_vel)
+
 
 class IdleMode(Mode):
     """Just sit there, not moving."""
     @staticmethod
     def run(robot):
-        msg = Pose2D()
-        msg.x = robot.x
-        msg.y = robot.y
-        msg.theta = robot.theta
-        robot.step_goal_publisher.publish(msg)
-
-        # TODO: !!!!! Need to make pose controller not talk directly to wheels. Perhaps send back
-        # the velocities that we can choose to publish.
         robot.stop_moving()
 
 
@@ -351,28 +359,26 @@ class NavMode(Mode):
         debug("NavMode: Path has {} steps, currently on step {}.".format(len(robot.path), robot.path_index))
         curr_step = robot.path[robot.path_index]
         msg = Pose2D()
-        msg.x = curr_step[0]
-        msg.y = curr_step[1]
-        msg.theta = curr_step[2]
+        msg.x, msg.y, msg.theta = curr_step
         robot.step_goal_publisher.publish(msg)
 
-        if robot.is_close_to(curr_step):
+        if robot.step_is_done:
             # Finished executing step so move on to next.
             debug("NavMode: Finished executing step, so moving to next.")
             robot.path_index += 1
-
-        if robot.path_index >= len(robot.path):
-            # Finished executing all steps.
-            debug("NavMode: Finished executing all steps.")
-            robot.path = None
-            robot.path_index = 0
-            robot.set_mode(RequestMode)
-            return
-
-        if robot.is_detecting_stop_sign() and robot.last_time_stopped > CROSSING_TIME:
+            if robot.path_index >= len(robot.path):
+                # Finished executing all steps.
+                debug("NavMode: Finished executing all steps.")
+                robot.path = None
+                robot.path_index = 0
+                robot.set_mode(RequestMode)
+        elif robot.is_detecting_stop_sign() and robot.last_time_stopped > CROSSING_TIME:
             # Detecing new stop sign and window for ignoring has elapsed.
             debug("NavMode: Detecting new stop sign.")
             robot.set_mode(StopMode)
+        else:
+            # Keep moving according to pose controller.
+            robot.cmd_vel_publisher.publish(robot.step_cmd_vel)
 
 
 class StopMode(Mode):

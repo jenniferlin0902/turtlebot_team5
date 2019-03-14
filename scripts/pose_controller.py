@@ -4,6 +4,7 @@ import rospy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist, PoseArray, Pose2D
 from std_msgs.msg import Float32MultiArray, String
+from turtlebot_team5.msg import PoseControl
 import tf
 import numpy as np
 from numpy import linalg
@@ -56,7 +57,7 @@ class PCState(Enum):
 class PoseController:
     def __init__(self):
         rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.INFO, anonymous=True)
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.pub = rospy.Publisher('/step_cmd', PoseControl, queue_size=10)
 
         # current state
         self.x = 0.0
@@ -234,7 +235,10 @@ class PoseController:
                 if abs(err_yaw) < YAW_PREC:
                     self.change_state(PCState.IDLE)
 
-            self.pub.publish(ctrl_output)
+            pose_control = PoseControl()
+            pose_control.cmd_vel = ctrl_output
+            pose_control.is_done = self.state == PCState.IDLE
+            self.pub.publish(pose_control)
                 
             rate.sleep()
 

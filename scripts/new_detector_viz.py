@@ -159,6 +159,7 @@ class DetectorViz:
 				    marker.points.append(second_line_point)
 				    # Publish the Marker
 				    self.box_marker.publish(marker)
+
 	def loop(self):
 		try:
             origin_frame = "/map" if mapping else "/odom"
