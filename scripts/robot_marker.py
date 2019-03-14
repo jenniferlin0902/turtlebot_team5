@@ -3,8 +3,9 @@ import rospy
 from std_msgs.msg import Float32MultiArray, String
 from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped, Vector3, Point
-from turtlebot_team5.msg import DetectedObjectList, DetectedObject #
-from turtlebot_team5.msg import ObjectLocationList, ObjectLocation
+from turtlebot_team5.msg import DetectedObjectList, DetectedObject, ObjectLocationList, ObjectLocation #
+from utils import log, error, debug
+#from turtlebot_team5.msg import ObjectLocationList, ObjectLocation
 
 import numpy as np
 import tf
@@ -16,10 +17,11 @@ from enum import Enum
 
 # use_gazebo = rospy.get_param("sim")
 
-
-rviz = rospy.get_param("rviz")
+rviz = 1
+mapping = 1
+#rviz = rospy.get_param("rviz") #ZACH COMMENTED THIS OUT
 # if using gmapping, you will have a map frame. otherwise it will be odom frame
-mapping = rospy.get_param("map")
+#mapping = rospy.get_param("map")
 
 class TurtleBotMaker:
     def __init__(self):
@@ -133,13 +135,19 @@ class TurtleBotMaker:
             self.goal_marker_publisher.publish(marker)
 
             # for (int) set or sth don't add if exist
+            #print("object list is {}".format(self.objectList))
             if self.objectLocatorList:
-                for obj in self.objectLocatorList.ob_locs:
-                    if obj not in self.doneList:
+                #ZACH CHANGED THIS
+                #print("object locator list in publish marker is {}".format(self.objectLocatorList))
+                for obj in self.objectLocatorList:
+                    #print("object is {}".format(obj))
+                #for obj in self.objectLocatorList.ob_locs:
+                    if obj.name not in self.doneList:
+                        #print('object not in donelist')
                         marker = Marker()
                         marker.header.stamp = rospy.Time(0)
                         marker.header.frame_id = origin_frame
-                        marker.type = marker.Cube
+                        marker.type = marker.CUBE
                         marker.text = "Object"
                         marker.action = marker.ADD
                         marker.scale.x = 0.3
@@ -148,9 +156,11 @@ class TurtleBotMaker:
                         marker.color.r = 1.0
                         marker.color.g = 0.0
                         marker.color.b = 1.0
+                        #print('obj.x is {}'.format(obj.x))
                         marker.pose.position.x = obj.x
                         marker.pose.position.y = obj.y
                         self.location_marker_publisher.publish(marker)
+                        print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                         self.doneList.append(obj.name)
                     
             
@@ -158,15 +168,19 @@ class TurtleBotMaker:
 
             
     def object_callback(self, msg):
-        self.objectList = msg
+        self.objectList = msg.ob_msgs
+        #print("in object callback, object list is {}".format(self.objectList))
 
     def objectLocator_callback(self, msg):
-        self.objectLocatorList = msg
+        self.objectLocatorList = msg.locations #changed from msg
+        #print("in object locator callback, object locator list is {}".format(msg))
         
 
     def publish_line(self, origin_frame):
         if self.objectList:
-            for obj in self.objectList.ob_msgs:
+                #ZACH CHANGED THIS
+            #print("object locator list in publish line is {}".format(self.objectList))
+            for obj in self.objectList:
             # if obj.ob_msgs.name == "stop sign": # to be modified based on the object classes
                                                   # using different marker 
                 theta_l = obj.thetaleft
@@ -222,7 +236,7 @@ class TurtleBotMaker:
                 euler = tf.transformations.euler_from_quaternion(rotation)
                 self.theta = euler[2]
                 self.publish_marker(origin_frame)
-                self.publish_line(origin_frame)
+                #self.publish_line(origin_frame) #ZACH COMMENTED THIS OUT
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
 
