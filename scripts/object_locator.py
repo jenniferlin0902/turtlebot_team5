@@ -20,6 +20,8 @@ mapping = rospy.get_param("map")
 
 OBJECT_STATE_COV = 0.01
 
+OBJ_COUNT_THRESHOLD = 5
+
 print("object_locator settings:")
 print("use_gazebo:", use_gazebo)
 print("mapping:", mapping)
@@ -77,6 +79,10 @@ class ObjectLocator:
 
     def naive_update_location(self, name, obj):
         r_obj = obj.distance
+        if r_obj > 4.0 or np.isnan(r_obj):
+            # filter out impossible distance 
+            log("Object Locator: {} has dist {}, filtering out".format(name, r_obj))
+            return
         alpha_obj = wrapToPi((obj.thetaleft + obj.thetaright)/2.0)
         x = r_obj * np.cos(alpha_obj + self.theta) + self.x
         y = r_obj * np.sin(alpha_obj + self.theta) + self.y
@@ -111,6 +117,8 @@ class ObjectLocator:
         if self.objects:
             obj_list = ObjectLocationList()
             for name, obj in self.objects.iteritems():
+                if obj[1] < OBJ_COUNT_THRESHOLD:
+                    continue
                 obj_loc = ObjectLocation()
                 obj_loc.name = name
                 obj_loc.x, obj_loc.y = obj[0]
