@@ -134,7 +134,7 @@ class Navigator:
         """ computes a path from current state to goal state using A* and sends it to the path controller """
 
         # makes sure we have a location
-        debug("Start computing path from ({}, {}) to ({}, {})".format(self.x, self.y, self.x_g, self.y_g))
+        debug("Start computing path to ({}, {})".format(self.x_g, self.y_g))
 
         try:
             (translation,rotation) = self.trans_listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
@@ -146,7 +146,7 @@ class Navigator:
             self.current_plan = []
             error("Navigator got tf exception")
             return
-        debug("Current location ({})".format((self.x_g, self.y_g)))
+        debug("Current location ({})".format((self.x, self.y)))
         # makes sure we have a map
         if not self.occupancy:
             self.current_plan = []
@@ -320,6 +320,6 @@ class Navigator:
 
 
 if __name__ == '__main__':
-    log("Navigator started")
     nav = Navigator()
+    log("Navigator started")
     rospy.spin()

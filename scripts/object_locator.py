@@ -6,7 +6,7 @@ from turtlebot_team5.msg import ObjectLocation, ObjectLocationList
 from turtlebot_team5.msg import DetectedObject, DetectedObjectList
 from geometry_msgs.msg import Pose2D
 from ekf import MeasurementObjectEKF
-from utils import wrapToPi
+from utils import wrapToPi, log, debug, error
 from tf import TransformListener
 import tf
 
