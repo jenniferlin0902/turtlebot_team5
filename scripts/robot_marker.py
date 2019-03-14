@@ -5,23 +5,12 @@ from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped, Vector3, Point
 from turtlebot_team5.msg import DetectedObjectList, DetectedObject, ObjectLocationList, ObjectLocation #
 from utils import log, error, debug
-#from turtlebot_team5.msg import ObjectLocationList, ObjectLocation
-
 import numpy as np
 import tf
 import math
 from enum import Enum
-
-
-
-
-# use_gazebo = rospy.get_param("sim")
-
 rviz = 1
 mapping = 1
-#rviz = rospy.get_param("rviz") #ZACH COMMENTED THIS OUT
-# if using gmapping, you will have a map frame. otherwise it will be odom frame
-#mapping = rospy.get_param("map")
 
 class TurtleBotMaker:
     def __init__(self):
@@ -36,16 +25,14 @@ class TurtleBotMaker:
         self.home_check = True
         robot_topic = 'robot_marker'
         goal_topic = 'goal_marker'
-        angle_topic = 'angle_topic'
+        # angle_topic = 'angle_topic'
         location_topic = 'location_topic'
         self.robot_marker_publisher = rospy.Publisher(robot_topic, Marker, queue_size=15)
         self.goal_marker_publisher = rospy.Publisher(goal_topic, Marker, queue_size=15)
-        self.marker_line = rospy.Publisher(angle_topic, Marker, queue_size=15)
+        # self.marker_line = rospy.Publisher(angle_topic, Marker, queue_size=15)
         self.location_marker_publisher = rospy.Publisher(location_topic, Marker, queue_size=15)
         
         # how is nav_cmd being decided -- human manually setting it, or rviz
-        
-
         
         # # if using gazebo, we have access to perfect state
         # if use_gazebo:
@@ -81,7 +68,6 @@ class TurtleBotMaker:
         self.theta = euler[2]
 
     def publish_marker(self, origin_frame):
-            #print("in publish_marker")
             if self.home_check:
                 marker = Marker()
                 marker.header.stamp = rospy.Time(0)
@@ -91,16 +77,15 @@ class TurtleBotMaker:
                 marker.action = marker.ADD
                 marker.scale.x = 0.3
                 marker.scale.y = 0.3 # 15cm
+                marker.scale.z = 0.3 # 15cm
                 marker.color.a = 1.0
-                marker.color.r = 197/256.0
-                marker.color.g = 244/256.0
-                marker.color.b = 66/256.0
+                marker.color.r = 1.0
+                marker.color.g = 0.0
+                marker.color.b = 0.0
                 marker.pose.orientation.w = self.theta
                 marker.pose.position.x = self.x
                 marker.pose.position.y = self.y
-
                 self.robot_marker_publisher.publish(marker)
-                #print(" published home marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                 self.home_check = False
             else:            
                 marker = Marker()
@@ -111,15 +96,15 @@ class TurtleBotMaker:
                 marker.action = marker.ADD
                 marker.scale.x = 0.15
                 marker.scale.y = 0.15 # 15cm
+                marker.scale.z = 0.15 # 15cm
                 marker.color.a = 1.0
-                marker.color.r = 66/256.0
-                marker.color.g = 244/256.0
-                marker.color.b = 197/256.0
+                marker.color.r = 0.0
+                marker.color.g = 1.0
+                marker.color.b = 0.0
                 marker.pose.orientation.w = self.theta
                 marker.pose.position.x = self.x
                 marker.pose.position.y = self.y
                 self.robot_marker_publisher.publish(marker)
-                #print(" published robot marker at x={}, y={}, orientation = {}".format(marker.pose.position.x,marker.pose.position.y,marker.pose.orientation.w))
 
             marker = Marker()
             marker.header.stamp = rospy.Time(0) #### To be modified 
@@ -129,6 +114,7 @@ class TurtleBotMaker:
             marker.action = marker.ADD
             marker.scale.x = 0.15
             marker.scale.y = 0.15 # 15cm
+            marker.scale.z = 0.15 # 15cm
             marker.color.a = 1.0
             marker.color.r = 1.0
             marker.color.g = 0.0
@@ -137,12 +123,10 @@ class TurtleBotMaker:
             marker.pose.position.x = self.x_g
             marker.pose.position.y = self.y_g
             self.goal_marker_publisher.publish(marker)
-            #print(" published goal marker at x={}, y={}, orientation = {}".format(marker.pose.position.x,marker.pose.position.y,marker.pose.orientation.w))
 
             # for (int) set or sth don't add if exist
             #print("object list is {}".format(self.objectList))
             if self.objectLocatorList:
-
                 #ZACH CHANGED THIS
                 #print("object locator list in publish marker is {}".format(self.objectLocatorList))
                 for obj in self.objectLocatorList:
@@ -156,8 +140,9 @@ class TurtleBotMaker:
                         marker.type = marker.CUBE
                         marker.text = "Object"
                         marker.action = marker.ADD
-                        marker.scale.x = 0.3
-                        marker.scale.y = 0.3  # 30cm
+                        marker.scale.x = 0.15
+                        marker.scale.y = 0.15  # 30cm
+                        marker.scale.z = 0.15  # 30cm
                         marker.color.a = 1.0
                         marker.color.r = 1.0
                         marker.color.g = 0.0
@@ -166,7 +151,7 @@ class TurtleBotMaker:
                         marker.pose.position.x = obj.x
                         marker.pose.position.y = obj.y
                         self.location_marker_publisher.publish(marker)
-                        #print("putting marker for obj.name {} at x={}, y={}".format(obj.name,marker.pose.position.x,marker.pose.position.y))
+                        print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                         self.doneList.append(obj.name)
                     
             
@@ -178,64 +163,58 @@ class TurtleBotMaker:
         #print("in object callback, object list is {}".format(self.objectList))
 
     def objectLocator_callback(self, msg):
-        #self.objectLocatorList = msg.locations #changed from msg
-        self.objectLocatorList=msg.locations
-        #print("object lopcator list is {}".format(self.objectLocatorList))
+        self.objectLocatorList = msg.locations #changed from msg
         #print("in object locator callback, object locator list is {}".format(msg))
         
 
-    def publish_line(self, origin_frame):
-        
-        if self.objectList:
-            #print("objectlist is {}".format(self.objectList))
-                #ZACH CHANGED THIS
-            #print("object locator list in publish line is {}".format(self.objectList))
-            for obj in self.objectList:
-            # if obj.ob_msgs.name == "stop sign": # to be modified based on the object classes
-                                                  # using different marker 
-                theta_l = obj.thetaleft
-                theta_r = obj.thetaright
-                dist = obj.distance
-                # scale = Vector3(2,4,0.69)
-                scale = Vector3(0.1,0.1,0.1)
-                self.marker_line.publish(self.make_arrow_points_marker(scale, Point(self.x, self.y, 0), 
-                            Point(self.x + dist * np.cos(self.theta + theta_l) , 
-                                  self.y + dist * np.sin(self.theta + theta_l) ,0), origin_frame))
+    # def publish_line(self, origin_frame):
+    #     if self.objectList:
+    #             #ZACH CHANGED THIS
+    #         #print("object locator list in publish line is {}".format(self.objectList))
+    #         for obj in self.objectList:
+    #         # if obj.ob_msgs.name == "stop sign": # to be modified based on the object classes
+    #                                               # using different marker 
+    #             theta_l = obj.thetaleft
+    #             theta_r = obj.thetaright
+    #             dist = obj.distance
+    #             # scale = Vector3(2,4,0.69)
+    #             scale = Vector3(0.1,0.1,0.1)
+    #             self.marker_line.publish(self.make_arrow_points_marker(scale, Point(self.x, self.y, 0), 
+    #                         Point(self.x + dist * np.cos(self.theta + theta_l) , 
+    #                               self.y + dist * np.sin(self.theta + theta_l) ,0), origin_frame))
                 
-                self.marker_line.publish(self.make_arrow_points_marker(scale, Point(self.x, self.y, 0), 
-                            Point(self.x + dist * np.cos(self.theta - theta_r) , 
-                                  self.y + dist * np.sin(self.theta - theta_r) ,0), origin_frame))
-                #print("published both lines with dist = {}, theta_l= {},theta_r ={} for object {}".format(dist,theta_l,theta_r,obj.name))
-            self.objectList = []
+    #             self.marker_line.publish(self.make_arrow_points_marker(scale, Point(self.x, self.y, 0), 
+    #                         Point(self.x + dist * np.cos(self.theta - theta_r) , 
+    #                               self.y + dist * np.sin(self.theta - theta_r) ,0), origin_frame))
+    #         self.objectList = []
 
 
-    def make_arrow_points_marker(self, scale, tail, tip, origin_frame):
-    # def make_arrow_points_marker(self, scale, tail, tip, idnum, origin_frame):
-        # make a visualization marker array for the occupancy grid
-        m = Marker()
-        m.action = Marker.ADD
-        t = rospy.Duration(0.2)
-        # t = rospy.Duration()
-        m.lifetime = t
-        # m.header.frame_id = '/base_link'
-        m.header.frame_id = origin_frame
-        m.header.stamp = rospy.Time.now()
-        m.ns = 'points_arrows'
-        # m.id = idnum  # Arrow (ARROW=0), Cube (CUBE=1), Sphere (SPHERE=2), Cylinder (CYLINDER=3)
-                        # Line Strip (LINE_STRIP=4), Line List (LINE_LIST=5), Cube List (CUBE_LIST=6)
-                        # Sphere List (SPHERE_LIST=7)
-        # m.type = Marker.LINE_STRIP
-        m.type = Marker.ARROW
-        m.pose.orientation.y = 0
-        m.pose.orientation.w = 1
-        m.scale = scale
-        m.color.r = 100/256.0
-        m.color.g = 100/256.0
-        m.color.b = 100/256.0
-        m.color.a = 0.8
-        m.points = [ tail, tip ]
-        # m.action = Marker.DELETE
-        return m
+    # def make_arrow_points_marker(self, scale, tail, tip, origin_frame):
+    # # def make_arrow_points_marker(self, scale, tail, tip, idnum, origin_frame):
+    #     # make a visualization marker array for the occupancy grid
+    #     m = Marker()
+    #     m.action = Marker.ADD
+    #     t = rospy.Duration(0.2)
+    #     # t = rospy.Duration()
+    #     m.lifetime = t
+    #     # m.header.frame_id = '/base_link'
+    #     m.header.frame_id = origin_frame
+    #     m.header.stamp = rospy.Time.now()
+    #     m.ns = 'points_arrows'
+    #     # m.id = idnum  # Arrow (ARROW=0), Cube (CUBE=1), Sphere (SPHERE=2), Cylinder (CYLINDER=3)
+    #                     # Line Strip (LINE_STRIP=4), Line List (LINE_LIST=5), Cube List (CUBE_LIST=6)
+    #                     # Sphere List (SPHERE_LIST=7)
+    #     m.type = Marker.ARROW
+    #     m.pose.orientation.y = 0
+    #     m.pose.orientation.w = 1
+    #     m.scale = scale
+    #     m.color.r = 100/256.0
+    #     m.color.g = 100/256.0
+    #     m.color.b = 100/256.0
+    #     m.color.a = 0.8
+    #     m.points = [ tail, tip ]
+    #     # m.action = Marker.DELETE
+    #     return m
 
     def loop(self):
         # if not use_gazebo:
@@ -247,7 +226,7 @@ class TurtleBotMaker:
                 euler = tf.transformations.euler_from_quaternion(rotation)
                 self.theta = euler[2]
                 self.publish_marker(origin_frame)
-                self.publish_line(origin_frame) #ZACH COMMENTED THIS OUT
+                #self.publish_line(origin_frame) #ZACH COMMENTED THIS OUT
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
 
