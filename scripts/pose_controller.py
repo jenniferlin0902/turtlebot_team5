@@ -7,13 +7,12 @@ from std_msgs.msg import Float32MultiArray, String
 import tf
 import numpy as np
 from numpy import linalg
-from utils import wrapToPi, log, debug, error
+from utils import wrapToPi, log, debug, error, wrapTo2Pi
 from enum import Enum
 
 # control gains
-K1 = 0.4 #originally 0.4
-K2 = 0.8 #originally 0.8
-K3 = 0.8 #originally 0.4
+V_GAIN = 0.5
+OM_GAIN = 0.5 
 
 # tells the robot to stay still
 # if it doesn't get messages within that time period
@@ -137,17 +136,17 @@ class PoseController:
             R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
             rel_coords_rot = np.dot(R,rel_coords)
 
-            rho = linalg.norm(rel_coords)
-            th_rot = wrapToPi(self.theta-self.get_direction(self.x_g,self.y_g))
-            debug("th_rot", th_rot)
+            rho = linalg.norm(rel_coords) 
+            th_rot = wrapToPi(wrapTo2Pi(self.get_direction(self.x_g,self.y_g)-wrapTo2Pi(self.theta)))
+
             if np.abs(th_rot) < YAW_PREC:
                 debug("Facing correct direction, moving forward")
-                V = K1*rho
+                V = V_GAIN * rho
                 om = 0
             else:
                 debug("Deviated from direction, fixing yaw")
                 V = 0
-                om = YAW_STEP_LARGE # th_rot
+                om = OM_GAIN * th_rot
             cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
             cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
             debug("ctrl x dot {}, theta dot {}".format(cmd_x_dot, cmd_theta_dot))
@@ -172,13 +171,10 @@ class PoseController:
         cmd_theta_dot = 0
 
         if (rospy.get_rostime().to_sec()-self.cmd_pose_time.to_sec()) < TIMEOUT:
-            err_yaw = wrapToPi(theta_target - self.theta)
-            if np.fabs(err_yaw) > YAW_PREC:
+            err_yaw = wrapToPi(wrapTo2Pi(theta_target) - wrapTo2Pi(self.theta))
+            if np.abs(err_yaw) > YAW_PREC:
                 debug("yaw error = %f", err_yaw)
-                if np.fabs(err_yaw) > 0.5:
-                    cmd_theta_dot = YAW_STEP_LARGE if err_yaw > 0 else -YAW_STEP_LARGE
-                else:
-                    cmd_theta_dot = YAW_STEP_SMALL if err_yaw > 0 else -YAW_STEP_SMALL
+                cmd_theta_dot = OM_GAIN * err_yaw
 
         else:
             # haven't received a command in a while so stop
