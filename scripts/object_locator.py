@@ -80,7 +80,7 @@ class ObjectLocator:
     def naive_update_location(self, name, obj):
         r_obj = obj.distance * 0.95
 
-        log("r_obj: ", r_obj, "thetaLeft: ", obj.thetaLeft, "thetaRight: ", obj.thetaRight)
+        log("r_obj: ", r_obj, "thetaeft: ", obj.thetaleft, "thetaRight: ", obj.thetaright)
         if r_obj > 4.0 or np.isnan(r_obj):
             # filter out impossible distance 
             log("Object Locator: {} has dist {}, filtering out".format(name, r_obj))

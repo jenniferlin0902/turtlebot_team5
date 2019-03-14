@@ -32,7 +32,7 @@ CROSSING_TIME = 3
 STOP_TIME = 3
 
 # Time (s) for nav mode.
-NAV_TIMEOUT = 10
+NAV_TIMEOUT = np.inf
 
 # ==================================================================================================
 # Parameters.
