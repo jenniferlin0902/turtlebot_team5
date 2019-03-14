@@ -48,8 +48,8 @@ class AStar(object):
     #          x1 - first state tuple
     #          x2 - second state tuple
     # OUTPUT: Float euclidean distance
-    def distance(self, x1, x2):                             # For heuristic 
-        return np.linalg.norm(np.array(x1)-np.array(x2))    # easier to extend to multi-dimensional cases
+    def distance(self, x1, x2):
+        return np.linalg.norm(np.array(x1)-np.array(x2))
 
     # returns the closest point on a discrete state grid
     # INPUT: (x)
@@ -72,28 +72,16 @@ class AStar(object):
     #           x - tuple state
     # OUTPUT: List of neighbors that are free, as a list of TUPLES
     def get_neighbors(self, x):
-        # TODO: fill me in!
-        neighbors = [] 
-        xpos = x[0]
-        ypos = x[1]
-        res = self.resolution
-        d_dist = np.sqrt(0.5 * res) # diagonal distance
-        
-        nextMove = [(xpos + res, ypos), (xpos - res, ypos),(xpos, ypos + res), (xpos, ypos - res), # right, left, up, down
-                    (xpos + d_dist, ypos + d_dist), (xpos + d_dist, ypos - d_dist),    # northeast, southeast
-                    (xpos - d_dist, ypos + d_dist), (xpos - d_dist, ypos - d_dist)]    # northwest, southwest
-        # nextMove = [[xpos + res, ypos], [xpos - res, ypos],[xpos, ypos + res], [xpos, ypos - res], # right, left, up, down
-        #             [xpos + d_dist, ypos + d_dist], [xpos + d_dist, ypos - d_dist],    # northeast, southeast
-        #             [xpos - d_dist, ypos + d_dist], [xpos - d_dist, ypos - d_dist]]    # northwest, southwest
-
-        neighbors = [self.snap_to_grid(move) for move in nextMove if self.is_free(self.snap_to_grid(move))] 
-        return neighbors
+        deltas = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx != 0 or dy != 0]
+        neighbors = [self.snap_to_grid((x[0] + self.resolution * dx, x[1] + self.resolution * dy))
+                     for dx, dy in deltas]
+        return [n for n in neighbors if self.is_free(n)]
 
 
     # Gets the state in open_set that has the lowest f_score
     # INPUT: None
     # OUTPUT: A tuple, the state found in open_set that has the lowest f_score
-    def find_best_f_score(self):        # For us to find the nearest location (serve as priority queue)
+    def find_best_f_score(self):
         return min(self.open_set, key=lambda x: self.f_score[x])
 
     # Use the came_from map to reconstruct a path from the initial location
@@ -135,29 +123,24 @@ class AStar(object):
     # INPUT: None
     # OUTPUT: Boolean, True if a solution from x_init to x_goal was found
     def solve(self):
-        while len(self.open_set) > 0:
-            x_current = self.find_best_f_score()
-            if x_current == self.x_goal:        # find the path
+        while len(self.open_set)>0:
+            x = self.find_best_f_score()
+            if x == self.x_goal:
                 self.path = self.reconstruct_path()
                 return True
-
-            self.open_set.remove(x_current)     # dequeue
-            self.closed_set.append(x_current)   # visited 
-
-            for neighbor in self.get_neighbors(x_current): 
-                if neighbor in self.closed_set: # already visited
+            self.open_set.remove(x)
+            self.closed_set.append(x)
+            for neigh in self.get_neighbors(x):
+                if neigh in self.closed_set:
                     continue
-                
-                cost = self.g_score[x_current] + self.distance(x_current, neighbor)
-                if neighbor not in self.open_set:
-                    self.open_set.append(neighbor)
-                elif cost > self.g_score[neighbor]:  # do not update the cost 
+                g_score = self.g_score[x] + self.distance(x, neigh)
+                if neigh not in self.open_set:
+                    self.open_set.append(neigh)
+                elif g_score > self.g_score[neigh]:
                     continue
-
-                # update the nearest path 
-                self.came_from[neighbor] = x_current
-                self.g_score[neighbor] = cost # it may be updated later
-                self.f_score[neighbor] = cost + self.distance(neighbor, self.x_goal) # cost + heuristic 
+                self.came_from[neigh] = x
+                self.g_score[neigh] = g_score
+                self.f_score[neigh] = g_score + self.distance(neigh, self.x_goal)
         return False
 
 # A 2D state space grid with a set of rectangular obstacles. The grid is fully deterministic
@@ -182,7 +165,7 @@ class DetOccupancyGrid2D(object):
         fig = plt.figure(fig_num)
         for obs in self.obstacles:
             ax = fig.add_subplot(111, aspect='equal')
-            ax.add_patchs(
+            ax.add_patch(
             patches.Rectangle(
             obs[0],
             obs[1][0]-obs[0][0],
@@ -190,17 +173,12 @@ class DetOccupancyGrid2D(object):
 
 ### TESTING
 
-# A simple example
+# # A simple example
 # width = 10
 # height = 10
-# # width = 50
-# # height = 50
 # x_init = (0,0)
 # x_goal = (8,8)
-# # x_goal = (8,3)
-# # x_goal = (48,48)
 # obstacles = [((6,6),(8,7)),((2,1),(4,2)),((2,4),(4,6)),((6,2),(8,4))]
-# # obstacles = [((0,1),(1,1)), ((6,6),(8,7)),((2,1),(4,2)),((2,4),(4,6)),((6,2),(8,4))]
 # occupancy = DetOccupancyGrid2D(width, height, obstacles)
 
 # A large random example
@@ -221,11 +199,11 @@ class DetOccupancyGrid2D(object):
 # while not (occupancy.is_free(x_init) and occupancy.is_free(x_goal)):
 #     x_init = tuple(np.random.randint(0,width-2,2).tolist())
 #     x_goal = tuple(np.random.randint(0,height-2,2).tolist())
-#
+
 # astar = AStar((0, 0), (width, height), x_init, x_goal, occupancy)
 #
 # if not astar.solve():
-#     print ("No path found")
+#     print "No path found"
 #     exit(0)
 #
 # astar.plot_path()
