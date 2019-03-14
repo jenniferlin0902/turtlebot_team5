@@ -11,5 +11,5 @@
   <node pkg="turtlebot_team5" type="robot_marker.py" name="robot_marker" output="screen"/>
   <node pkg="turtlebot_team5" type="detector_viz.py" name="turtlebot_detector_viz" output="screen"/>
 
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_team5)/rviz/project_rviz.rviz" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_team5)/rviz/project.rviz" />
 </launch>

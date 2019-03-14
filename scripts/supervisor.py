@@ -12,6 +12,7 @@ from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
 from turtlebot_team5.msg import DetectedObject, ObjectLocationList
 from timer import Timer
 from utils import log, error, debug, warn
+import numpy as np
 
 # ==================================================================================================
 # Constants.
@@ -19,7 +20,7 @@ from utils import log, error, debug, warn
 # Threshold (m) for robot being "close enough" to a given position/theta for it to be considered
 # there.
 POS_EPS = .2
-THETA_EPS = .3
+THETA_EPS = 1.5*np.pi*(10/180.0)
 
 # Minimum distance (m) from a stop sign at which to obey it by initiating stopping behavior.
 STOP_MIN_DIST = 0.5
@@ -34,14 +35,14 @@ STOP_TIME = 3
 # ==================================================================================================
 # Parameters.
 
-# Whether running in simulation gazebo, therefore want to subscribe to /gazebo/model_states\
-# otherwise, they will use a TF lookup (hw2+)
+# Whether running in simulation gazebo, therefore want to subscribe to /gazebo/model_states.
+# Otherwise, they will use a TF lookup.
 use_gazebo = rospy.get_param("sim")
 
 # if using gmapping, you will have a map frame. otherwise it will be odom frame
 mapping = rospy.get_param("map")
 
-log("supervisor settings:")
+log("Supervisor settings:")
 log("use_gazebo:", use_gazebo)
 log("mapping:", mapping)
 
@@ -140,18 +141,22 @@ class Supervisor:
 
     def state_machine_callback(self, msg):
         cmd = msg.data.lower().strip()
+        debug("Supervisor: state_machine_callback: Got cmd '{}'".format(cmd))
         if cmd == "idle":
             self.set_mode(IdleMode)
         elif cmd == "manual":
             self.set_mode(ManualMode)
         elif cmd == "request":
             self.set_mode(RequestMode)
+        elif cmd == "nav":
+            self.set_mode(NavMode)
         else:
             warn("Invalid command to state_machine_callback:", cmd)
 
     def nav_path_callback(self, msg):
+        debug("Supervisor: nav_path_callback: Got nav_path of length {}.".format(len(msg.poses)))
         if self.mode != NavMode:
-            error("Got to nav_path_callback while in mode:", self.mode)
+            error("Supervisor: nav_path_callback: Path received in mode:", self.mode.__name__)
             return
 
         self.path = [convert_pose_to_tuple(ps.pose) for ps in msg.poses]  # [(x, y, theta)]
@@ -162,10 +167,7 @@ class Supervisor:
         self.x, self.y, self.theta = convert_pose_to_tuple(pose)
 
     def rviz_goal_callback(self, msg):
-        if self.mode != ManualMode:
-            error("Got to rviz_goal_callback while in mode:", self.mode)
-            return
-
+        debug("Supervisor: rviz_goal_callback: Got nav_pose from rviz.")
         origin_frame = "/map" if mapping else "/odom"
         try:
             nav_pose_origin = self.trans_listener.transformPose(origin_frame, msg)
@@ -176,12 +178,12 @@ class Supervisor:
 
     def delivery_request_callback(self, msg):
         items = msg.data.lower().strip().split(",")
-        debug("delivery_request_callback: Got {} items:".format(len(items)), items)
+        debug("Supervisor: delivery_request_callback: Got {} items:".format(len(items)), items)
         if len(items) > 0:
             self.delivery_requests.extend(items)
 
     def object_location_callback(self, msg):
-        debug("object_location_callback: Got {} locations.".format(len(msg.locations)))
+        debug("Supervisor: object_location_callback: Got {} locations.".format(len(msg.locations)))
         for loc in msg.locations:
             self.obj_coordinates[loc.name] = (loc.x, loc.y)
 
@@ -208,12 +210,21 @@ class Supervisor:
 
     def set_mode(self, mode):
         """Sets the current mode in thread safe way."""
+        # Must protect mode with a mutex since this method may be called in callbacks. Also must
+        # not throw exceptions but rather catch them, otherwise will kill the thread that called
+        # this method.
         self._mode_lock.acquire()
         if self.mode != mode:
             log("StateMachine: exiting", self.mode.__name__, "--> entering", mode.__name__)
-            self.mode.exit(self)
+            try:
+                self.mode.exit(self)
+            except Exception, e:
+                error("StateMachine: Got exception from exit() of {}:\n".format(self.mode.__name_, str(e)))
             self.mode = mode
-            self.mode.enter(self)
+            try:
+                self.mode.enter(self)
+            except Exception, e:
+                error("StateMachine: Got exception from enter() of {}:\n".format(self.mode.__name_, str(e)))
             log("StateMachine: running", self.mode.__name__)
         else:
             log("StateMachine: already running", self.mode.__name__)
@@ -222,10 +233,15 @@ class Supervisor:
     def run(self):
         """Loop to execute state machine logic."""
         rate = rospy.Rate(10)  # 10 Hz
+        log("StateMachine: starting in", self.mode.__name__)
         self.mode.enter(self)
         while not rospy.is_shutdown():
-            # Get location from mapping if using real robot.
-            if not use_gazebo:
+
+            if use_gazebo:
+                # The gazebo_callback already populates self.x/y/theta.
+                pass
+            else:
+                # Get location from mapping if using real robot.
                 try:
                     origin_frame = "/map" if mapping else "/odom"
                     (translation, rotation) = self.trans_listener.lookupTransform(
@@ -331,6 +347,7 @@ class NavMode(Mode):
             return
 
         # Publish the currently executing step.
+        debug("NavMode: Path has {} steps, currently on step {}.".format(len(robot.path), robot.path_index))
         curr_step = robot.path[robot.path_index]
         msg = Pose2D()
         msg.x = curr_step[0]

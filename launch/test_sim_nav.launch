@@ -5,11 +5,6 @@
   <arg name="z_pos" default="0.0"/>
   <arg name="gui" default="false"/>
 
-
-  <rosparam param="sim">false</rosparam>
-  <rosparam param="map">true</rosparam>
-  <rosparam param="use_tf">false</rosparam>
-
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
     <arg name="world_name" value="$(find turtlebot_team5)/world/project_city.world"/>
     <arg name="paused" value="false"/>
@@ -59,12 +54,16 @@
     <param name="lasamplerange" value="0.005"/>
     <param name="lasamplestep" value="0.005"/>
   </node>
-  
 
-  <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" />
-  <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" />
-  <node pkg="turtlebot_team5" type="cmd_nav_commander.py" name="cmd_nav_commander" />
-  <node pkg="turtlebot_team5" type="detector.py" name="turtlebot_detector" />
+
+  <rosparam param="sim">false</rosparam>
+  <rosparam param="map">true</rosparam>
+  <rosparam param="rviz">true</rosparam>
+  <rosparam param="use_tf">false</rosparam>
+  <node pkg="turtlebot_team5" type="supervisor.py" name="turtlebot_supervisor" output="screen"/>
+  <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" output="screen"/>
+  <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" output="screen"/>
+  <node pkg="turtlebot_team5" type="robot_marker.py" name="robot_marker" output="screen"/>
 
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_team5)/rviz/project_sim.rviz"/>
 </launch>

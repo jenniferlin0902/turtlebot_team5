@@ -182,7 +182,7 @@ class DetOccupancyGrid2D(object):
         fig = plt.figure(fig_num)
         for obs in self.obstacles:
             ax = fig.add_subplot(111, aspect='equal')
-            ax.add_patch(
+            ax.add_patchs(
             patches.Rectangle(
             obs[0],
             obs[1][0]-obs[0][0],
@@ -221,11 +221,11 @@ class DetOccupancyGrid2D(object):
 # while not (occupancy.is_free(x_init) and occupancy.is_free(x_goal)):
 #     x_init = tuple(np.random.randint(0,width-2,2).tolist())
 #     x_goal = tuple(np.random.randint(0,height-2,2).tolist())
-
+#
 # astar = AStar((0, 0), (width, height), x_init, x_goal, occupancy)
-
+#
 # if not astar.solve():
 #     print ("No path found")
 #     exit(0)
-
+#
 # astar.plot_path()
