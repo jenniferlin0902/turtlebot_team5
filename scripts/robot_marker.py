@@ -56,7 +56,7 @@ class TurtleBotMaker:
         self.x_g = data.x
         self.y_g = data.y
         self.theta_g = data.theta
-        print("GOT cmd pose {}", (data.x, data.y))
+        #print("GOT cmd pose {}", (data.x, data.y))
         ######### END OF YOUR CODE ##########
 
     def gazebo_callback(self, msg):
@@ -163,7 +163,7 @@ class TurtleBotMaker:
                     marker.pose.position.x = obj.x
                     marker.pose.position.y = obj.y
                     self.location_marker_publisher.publish(marker)
-                    print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
+                    #print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                     # self.doneList.append(obj.name)
  
 

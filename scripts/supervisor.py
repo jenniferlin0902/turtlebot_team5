@@ -238,13 +238,13 @@ class Supervisor:
             log("StateMachine: exiting", self.mode.__name__, "--> entering", mode.__name__)
             try:
                 self.mode.exit(self)
-            except Exception, e:
-                error("StateMachine: Got exception from exit() of {}:\n".format(self.mode.__name_, str(e)))
+            except Exception as e:
+                error("StateMachine: Got exception from exit() of {}:\n".format(self.mode.__name__, str(e)))
             self.mode = mode
             try:
                 self.mode.enter(self)
-            except Exception, e:
-                error("StateMachine: Got exception from enter() of {}:\n".format(self.mode.__name_, str(e)))
+            except Exception as e:
+                error("StateMachine: Got exception from enter() of {}:\n".format(self.mode.__name__, str(e)))
             log("StateMachine: running", self.mode.__name__)
         else:
             log("StateMachine: already running", self.mode.__name__)

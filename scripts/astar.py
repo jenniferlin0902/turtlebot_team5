@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from utils import debug, log, error
 
 # Represents a motion planning problem to be solved using A*
 class AStar(object):
@@ -123,7 +124,10 @@ class AStar(object):
     # INPUT: None
     # OUTPUT: Boolean, True if a solution from x_init to x_goal was found
     def solve(self):
+        self.plot_path()
+        print("Astart started")
         while len(self.open_set)>0:
+            print("Astar: lenth of open_set {}".format(len(self.open_set)))
             x = self.find_best_f_score()
             if x == self.x_goal:
                 self.path = self.reconstruct_path()

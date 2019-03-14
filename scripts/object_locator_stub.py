@@ -34,7 +34,7 @@ class ObjectLocatorStub:
         self.object_ekfs = {}
         # robot location
         self.x = 0
-        self.y = 1
+        self.y = 0
         self.trans_listener = TransformListener()
         self.pub = rospy.Publisher('/object_location', ObjectLocationList, queue_size=10)
 
@@ -44,7 +44,7 @@ class ObjectLocatorStub:
         obj_loc.name = "FAKE_BOTTLE"
         obj_loc.x = self.x
         obj_loc.y = self.y
-        obj_loc.count = 0
+        obj_loc.count = 3
         obj_list.locations.append(obj_loc)
         self.pub.publish(obj_list)
 
@@ -52,9 +52,8 @@ class ObjectLocatorStub:
         rate = rospy.Rate(1)
         counter = 0
         while not rospy.is_shutdown():
-            self.x = (self.x + 0.1) % 5
-            self.y = (self.y + 0.2) % 5
             self.publish_object_location()
+            exit(1)
 
 if __name__ == '__main__':
     loc = ObjectLocatorStub()
