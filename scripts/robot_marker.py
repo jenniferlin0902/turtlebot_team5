@@ -9,9 +9,11 @@ import numpy as np
 import tf
 import math
 from enum import Enum
-rviz = 1
-mapping = 1
-
+use_gazebo = rospy.get_param("sim")
+# how is nav_cmd being decided -- human manually setting it, or rsviz
+rviz = rospy.get_param("rviz")
+# if using gmapping, you will have a map frame. otherwise it will be odom frame
+mapping = rospy.get_param("map")
 class TurtleBotMaker:
     def __init__(self):
         rospy.init_node('turtlbot_marker')
