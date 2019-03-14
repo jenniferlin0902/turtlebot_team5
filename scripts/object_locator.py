@@ -35,6 +35,7 @@ class ObjectLocator:
         # robot location
         self.x = None
         self.y = None
+        self.theta = None
         self.trans_listener = TransformListener()
         rospy.Subscriber('/detector/objects', DetectedObjectList, self.detected_object_callback)
         self.pub = rospy.Publisher('/object_location', ObjectLocationList, queue_size=10)
@@ -49,8 +50,8 @@ class ObjectLocator:
                 self.y = translation[1]
                 euler = tf.transformations.euler_from_quaternion(rotation)
                 self.theta = euler[2]
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                log("got tf exception")
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+                debug("object locator: got tf exception",e)
                 pass
 
     def ekf_update_location(self, name, obj):
@@ -72,9 +73,9 @@ class ObjectLocator:
     def naive_update_location(self, name, obj):
         r_obj = obj.distance
         alpha_obj = wrapToPi((obj.thetaleft + obj.thetaright)/2.0)
-        x = r_obj * np.sin(alpha_obj + self.theta) + self.x
-        y = r_obj * np.cos(alpha_obj + self.theta) + self.y
-        rospy.logdebug("r_obj {}, alpha_obj {}, x {}, y {}, self x {}, self y {}".format(r_obj, alpha_obj, x, y, self.x, self.y))
+        x = r_obj * np.cos(alpha_obj + self.theta) + self.x
+        y = r_obj * np.sin(alpha_obj + self.theta) + self.y
+        debug("r_obj {}, alpha_obj {}, x {}, y {}, self x {}, self y {}".format(r_obj, alpha_obj, x, y, self.x, self.y))
         if name not in self.objects:
             self.objects[name] = ((x,y), 1)
         else:
@@ -83,6 +84,7 @@ class ObjectLocator:
             x_new = (c/float(c+1))*x_old + 1/float(c+1)*x
             y_new = (c/float(c+1))*y_old + 1/float(c+1)*y
             self.objects[name] = ((x_new, y_new), c+1) 
+            debug("Saw {} {} times".format(name, c+1))
 
 
     def detected_object_callback(self, msg):
