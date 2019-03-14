@@ -81,6 +81,7 @@ class TurtleBotMaker:
         self.theta = euler[2]
 
     def publish_marker(self, origin_frame):
+            #print("in publish_marker")
             if self.home_check:
                 marker = Marker()
                 marker.header.stamp = rospy.Time(0)
@@ -97,7 +98,9 @@ class TurtleBotMaker:
                 marker.pose.orientation.w = self.theta
                 marker.pose.position.x = self.x
                 marker.pose.position.y = self.y
+
                 self.robot_marker_publisher.publish(marker)
+                #print(" published home marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                 self.home_check = False
             else:            
                 marker = Marker()
@@ -109,13 +112,14 @@ class TurtleBotMaker:
                 marker.scale.x = 0.15
                 marker.scale.y = 0.15 # 15cm
                 marker.color.a = 1.0
-                marker.color.r = 197/256.0
+                marker.color.r = 66/256.0
                 marker.color.g = 244/256.0
-                marker.color.b = 66/256.0
+                marker.color.b = 197/256.0
                 marker.pose.orientation.w = self.theta
                 marker.pose.position.x = self.x
                 marker.pose.position.y = self.y
                 self.robot_marker_publisher.publish(marker)
+                #print(" published robot marker at x={}, y={}, orientation = {}".format(marker.pose.position.x,marker.pose.position.y,marker.pose.orientation.w))
 
             marker = Marker()
             marker.header.stamp = rospy.Time(0) #### To be modified 
@@ -133,10 +137,12 @@ class TurtleBotMaker:
             marker.pose.position.x = self.x_g
             marker.pose.position.y = self.y_g
             self.goal_marker_publisher.publish(marker)
+            #print(" published goal marker at x={}, y={}, orientation = {}".format(marker.pose.position.x,marker.pose.position.y,marker.pose.orientation.w))
 
             # for (int) set or sth don't add if exist
             #print("object list is {}".format(self.objectList))
             if self.objectLocatorList:
+
                 #ZACH CHANGED THIS
                 #print("object locator list in publish marker is {}".format(self.objectLocatorList))
                 for obj in self.objectLocatorList:
@@ -160,7 +166,7 @@ class TurtleBotMaker:
                         marker.pose.position.x = obj.x
                         marker.pose.position.y = obj.y
                         self.location_marker_publisher.publish(marker)
-                        print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
+                        #print("putting marker for obj.name {} at x={}, y={}".format(obj.name,marker.pose.position.x,marker.pose.position.y))
                         self.doneList.append(obj.name)
                     
             
@@ -172,12 +178,16 @@ class TurtleBotMaker:
         #print("in object callback, object list is {}".format(self.objectList))
 
     def objectLocator_callback(self, msg):
-        self.objectLocatorList = msg.locations #changed from msg
+        #self.objectLocatorList = msg.locations #changed from msg
+        self.objectLocatorList=msg.locations
+        #print("object lopcator list is {}".format(self.objectLocatorList))
         #print("in object locator callback, object locator list is {}".format(msg))
         
 
     def publish_line(self, origin_frame):
+        
         if self.objectList:
+            #print("objectlist is {}".format(self.objectList))
                 #ZACH CHANGED THIS
             #print("object locator list in publish line is {}".format(self.objectList))
             for obj in self.objectList:
@@ -195,6 +205,7 @@ class TurtleBotMaker:
                 self.marker_line.publish(self.make_arrow_points_marker(scale, Point(self.x, self.y, 0), 
                             Point(self.x + dist * np.cos(self.theta - theta_r) , 
                                   self.y + dist * np.sin(self.theta - theta_r) ,0), origin_frame))
+                #print("published both lines with dist = {}, theta_l= {},theta_r ={} for object {}".format(dist,theta_l,theta_r,obj.name))
             self.objectList = []
 
 
@@ -236,7 +247,7 @@ class TurtleBotMaker:
                 euler = tf.transformations.euler_from_quaternion(rotation)
                 self.theta = euler[2]
                 self.publish_marker(origin_frame)
-                #self.publish_line(origin_frame) #ZACH COMMENTED THIS OUT
+                self.publish_line(origin_frame) #ZACH COMMENTED THIS OUT
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
 
