@@ -31,6 +31,8 @@ CROSSING_TIME = 3
 # Time (s) to stop at a stop sign.
 STOP_TIME = 3
 
+# Timeout for nav mode
+NAV_TIMEOUT = 10
 
 # ==================================================================================================
 # Parameters.
@@ -107,6 +109,8 @@ class Supervisor:
         # Detected objects.
         self.obj_coordinates = {}  # "name" --> (x, y)
 
+
+        self.nav_mode_enter_time = -1.0
         # ==========================================================================================
         # Subscribers.
 
@@ -297,6 +301,14 @@ class Mode(object):
 class ManualMode(Mode):
     """Manually drive the robot around by clicking in Rviz."""
     @staticmethod
+    def enter(robot):
+        debug("Entering manual mode")
+        robot.nav_goal_pose_x = None
+        robot.nav_goal_pose_y = None
+        robot.nav_goal_pose_theta = None
+        robot.stop_moving()
+
+    @staticmethod
     def run(robot):
         if robot.nav_goal_pose_x is not None:
             msg = Pose2D()
@@ -354,7 +366,9 @@ class NavMode(Mode):
         msg.x = robot.nav_goal_pose_x
         msg.y = robot.nav_goal_pose_y
         msg.theta = robot.nav_goal_pose_theta  # Does not matter
+        robot.nav_mode_enter_time = rospy.get_rostime().to_sec()
         robot.nav_goal_publisher.publish(msg)
+        
 
     @staticmethod
     def run(robot):
@@ -369,6 +383,11 @@ class NavMode(Mode):
         # msg = Pose2D()
         # msg.x, msg.y, msg.theta = curr_step
         # robot.step_goal_publisher.publish(msg)
+
+        # if astar takes too long 
+        if rospy.get_rostime().to_sec()-robot.nav_mode_enter_time.to_sec < NAV_TIMEOUT:
+            log("Astar time out!!")
+            robot.set_mode(ManualMode)
 
         if robot.step_is_done:
             if robot.path_index >= len(robot.path):
