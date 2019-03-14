@@ -43,6 +43,8 @@ class TurtleBotMaker:
         self.objectList = None
         self.objectLocatorList = None
         self.doneList = []
+        self.name2id = {} 
+        
         self.num_obj = 0
         rospy.Subscriber('/cmd_pose', Pose2D, self.cmd_pose_callback)
         rospy.Subscriber('/detector/objects', DetectedObjectList, self.object_callback, queue_size=10)
@@ -135,7 +137,8 @@ class TurtleBotMaker:
                 for obj in self.objectLocatorList:
                     #print("object is {}".format(obj))
                 #for obj in self.objectLocatorList.ob_locs:
-                    if obj.name not in self.doneList:
+                    # if obj.name not in self.doneList:  
+                    if obj.name not in self.name2id:  # name2id[name] = id
                         #print('object not in donelist')
                         marker = Marker()
                         marker.header.stamp = rospy.Time(0)
@@ -156,10 +159,12 @@ class TurtleBotMaker:
                         marker.pose.position.y = obj.y
                         self.location_marker_publisher.publish(marker)
                         print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
-                        self.doneList.append(obj.name)
+                        # self.doneList.append(obj.name)
+                        name2id[obj.name] = self.num_obj
                         self.num_obj += 1
+
                     
-            
+
             
 
             
