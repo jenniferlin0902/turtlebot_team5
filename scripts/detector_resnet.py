@@ -16,24 +16,25 @@ import math
 PATH_TO_MODEL = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../tfmodels/ssd_resnet_50_fpn_coco.pb')
 PATH_TO_LABELS = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../tfmodels/coco_labels.txt')
 
-PRIOR = {
-    0: 1,  # unlabeled
-    12: 1,  # street sign
-    13: 1,  # stop sign
-    121: 1,  # food-other
-    122: 1,  # fruit
-    153: 1,  # salad
-    170: 1,  # vegetable
-}
-PRIOR.update({
-    i: 1 for i in range(44, 62)  # bottle - cake
-})
+# PRIOR = {
+#     0: 1,  # unlabeled
+#     12: 1,  # street sign
+#     13: 1,  # stop sign
+#     121: 1,  # food-other
+#     122: 1,  # fruit
+#     153: 1,  # salad
+#     170: 1,  # vegetable
+# }
+# PRIOR.update({
+#     i: 1 for i in range(44, 62)  # bottle - cake
+# })
+PRIOR = {52:1,53:1,56:1,57:1,58:1,60:1,13:1}#banana,apple,broccoli,carrot,hot dog, donut, stop sign, (in this order)
 
 # set to True to use tensorflow and a conv net
 # False will use a very simple color thresholding to detect stop signs only
 USE_TF = True
 # minimum score for positive detection
-MIN_SCORE = .4
+MIN_SCORE = .35
 
 def load_object_labels(filename):
     """ loads the coco object readable name """
