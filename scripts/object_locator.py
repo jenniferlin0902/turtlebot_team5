@@ -112,9 +112,11 @@ class ObjectLocator:
             self.pub.publish(obj_list)
 
     def run(self):
-        rate = rospy.Rate(10)  # 10 Hz
+        rate = rospy.Rate(10)  # Update detections 10 Hz
+        counter = 0
         while not rospy.is_shutdown():
-            self.publish_object_location()
+            if counter == 0: self.publish_object_location()
+            counter = (counter + 1) % 10  # Publish 1 Hz
             rate.sleep()
 
 if __name__ == '__main__':

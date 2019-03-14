@@ -56,7 +56,7 @@ class PCState(Enum):
 
 class PoseController:
     def __init__(self):
-        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.DEBUG, anonymous=True)
+        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.INFO, anonymous=True)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         # current state
@@ -137,13 +137,9 @@ class PoseController:
             R = np.array([[np.cos(self.theta_g), np.sin(self.theta_g)], [-np.sin(self.theta_g), np.cos(self.theta_g)]])
             rel_coords_rot = np.dot(R,rel_coords)
 
-            rho = linalg.norm(rel_coords) 
-            ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
-            th_rot = self.theta-self.get_direction(self.x_g,self.y_g)
-            angs = wrapToPi(np.array([ang-th_rot, ang])) 
-            # alpha = angs[0]
-            # delta = angs[1]
-
+            rho = linalg.norm(rel_coords)
+            th_rot = wrapToPi(self.theta-self.get_direction(self.x_g,self.y_g))
+            debug("th_rot", th_rot)
             if np.abs(th_rot) < YAW_PREC:
                 debug("Facing correct direction, moving forward")
                 V = K1*rho
@@ -151,7 +147,7 @@ class PoseController:
             else:
                 debug("Deviated from direction, fixing yaw")
                 V = 0
-                om = th_rot
+                om = YAW_STEP_LARGE # th_rot
             cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
             cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
             debug("ctrl x dot {}, theta dot {}".format(cmd_x_dot, cmd_theta_dot))

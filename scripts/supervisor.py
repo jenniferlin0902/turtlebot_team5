@@ -70,7 +70,7 @@ class Supervisor:
 
     def __init__(self):
         """Initialized ROS node with the state machine in the `ManualMode` mode."""
-        rospy.init_node('turtlebot_supervisor', anonymous=True)
+        rospy.init_node('turtlebot_supervisor', log_level=rospy.DEBUG, anonymous=True)
 
         # ==========================================================================================
         # Robot state.
@@ -176,8 +176,8 @@ class Supervisor:
 
     def delivery_request_callback(self, msg):
         items = msg.data.lower().strip().split(",")
+        debug("delivery_request_callback: Got {} items:".format(len(items)), items)
         if len(items) > 0:
-            debug("delivery_request_callback: Got {} items:".format(len(items)), items)
             self.delivery_requests.extend(items)
 
     def object_location_callback(self, msg):
