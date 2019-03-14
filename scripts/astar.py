@@ -124,13 +124,16 @@ class AStar(object):
     # INPUT: None
     # OUTPUT: Boolean, True if a solution from x_init to x_goal was found
     def solve(self):
-        self.plot_path()
+        fig = plt.figure()
+        self.occupancy.plot(fig.number)
+        plt.show()
         print("Astart started")
         while len(self.open_set)>0:
             print("Astar: lenth of open_set {}".format(len(self.open_set)))
             x = self.find_best_f_score()
             if x == self.x_goal:
                 self.path = self.reconstruct_path()
+                self.plot_path()
                 return True
             self.open_set.remove(x)
             self.closed_set.append(x)
