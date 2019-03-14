@@ -7,6 +7,9 @@ def log(*args):
 def debug(*args):
     rospy.logdebug(" ".join([str(arg) for arg in args]))
 
+def warn(*args):
+    rospy.logwarn(" ".join([str(arg) for arg in args]))
+
 def error(*args):
     rospy.logerr(" ".join([str(arg) for arg in args]))
 

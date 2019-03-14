@@ -33,7 +33,7 @@ PRIOR.update({
 # False will use a very simple color thresholding to detect stop signs only
 USE_TF = True
 # minimum score for positive detection
-MIN_SCORE = .5
+MIN_SCORE = .4
 
 def load_object_labels(filename):
     """ loads the coco object readable name """
@@ -48,10 +48,11 @@ def load_object_labels(filename):
 
     return object_labels
 
+
 class Detector:
 
     def __init__(self):
-        rospy.init_node('turtlebot_detector', anonymous=True)
+        rospy.init_node('turtlebot_detector', anonymous=True, log_level=rospy.DEBUG)
         self.bridge = CvBridge()
 
         self.detected_objects_pub = rospy.Publisher('/detector/objects', DetectedObjectList, queue_size=10)
@@ -131,21 +132,18 @@ class Detector:
     def filter(self, boxes, scores, classes, num):
         """ removes any detected object below MIN_SCORE confidence """
         boxes_r, scores_r, classes_r = [], [], []  # Reweighted objects
-        norm = 0.0
         for i in range(num):
             c = int(classes[i])
             if c in PRIOR:
                 score = scores[i] * PRIOR[c]
-                rospy.loginfo("1:detector: {}({}) {}".format(self.object_labels[c], classes[i], score))
                 boxes_r.append(boxes[i])
                 scores_r.append(score)
-                classes_r.append(classes[i])
-                #norm += score
+                classes_r.append(c)
 
         boxes_f, scores_f, classes_f = [], [], []
         for j in range(len(boxes_r)):
             score = scores_r[j]
-            rospy.loginfo("2:detector: {}({}) {}".format(self.object_labels[classes_f[j]], classes_f[j], score))
+            rospy.logdebug("DetectorResnet: Pre-filtered element {}({:d}) with score {}.".format(self.object_labels[classes_r[j]], classes_r[j], score))
             if score >= MIN_SCORE:
                 scores_f.append(score)
                 boxes_f.append(boxes_r[j])
@@ -153,7 +151,10 @@ class Detector:
             else:
                 break
 
-        #rospy.loginfo("detector: total of {} elements ({})".format(len(boxes_f), ",".join(str(c) for c in classes_f)))
+        rospy.loginfo("DetectorResnet: Detected {} object elements [{}].".format(
+            len(boxes_f),
+            ",".join("{}={}".format(self.object_labels[classes_f[k]], scores_f[k]) for k in range(len(boxes_f))))
+        )
 
         return boxes_f, scores_f, classes_f, len(boxes_f)
 
