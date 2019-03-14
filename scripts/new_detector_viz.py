@@ -12,6 +12,8 @@ from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Point
 import cv2
 import math
+import array 
+
 
 CV2_FONT = cv2.FONT_HERSHEY_SIMPLEX
 BOX_TIMEOUT = 1.0
@@ -98,14 +100,15 @@ class DetectorViz:
             	theta_l = ob_msg.thetaleft
             	theta_r = ob_msg.thetaright
             	dist = ob_msg.distance
-            	xl = Point(self.x + dist * np.cos(self.theta + theta_l)) 
-            	yl = Point(self.y + dist * np.sin(self.theta + theta_l))
-            	xr = Point(self.x + dist * np.cos(self.theta - theta_r))
-                yr = Point(self.y + dist * np.sin(self.theta - theta_r))
+            	xl = self.x + dist * np.cos(self.theta + theta_l)
+            	yl = self.y + dist * np.sin(self.theta + theta_l)
+            	xr = self.x + dist * np.cos(self.theta - theta_r)
+                yr = self.y + dist * np.sin(self.theta - theta_r)
                 z = 1 	# 1 meter height 
-                X = (xl, xl, xr, xr, xl)
-                Y = (yl, yl, yr, yr, yl)
-                Z = (0, z, z, 0, 0)
+                X = array.array('f', [xl, xl, xr, xr, xl])  
+                Y = array.array('f', [yl, yl, yr, yr, yl])  
+                Z = array.array('f', [0, z, z, 0, 0])  
+
                 for i in range(4):
 	                # start to draw line
 			    	marker = Marker()
@@ -127,7 +130,7 @@ class DetectorViz:
 
 				    # marker color
 				    marker.color.a = 1.0
-				    marker.color.r = 1.0
+				    marker.color.r = 0.0
 				    marker.color.g = 1.0
 				    marker.color.b = 0.0
 
