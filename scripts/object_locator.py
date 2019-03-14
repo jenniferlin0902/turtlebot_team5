@@ -6,7 +6,7 @@ from turtlebot_team5.msg import ObjectLocation, ObjectLocationList
 from turtlebot_team5.msg import DetectedObject, DetectedObjectList
 from geometry_msgs.msg import Pose2D
 from ekf import MeasurementObjectEKF
-from utils import wrapToPi, log, debug, error
+from utils import wrapToPi, wrapTo2Pi, log, debug, error
 from tf import TransformListener
 import tf
 
@@ -79,6 +79,8 @@ class ObjectLocator:
 
     def naive_update_location(self, name, obj):
         r_obj = obj.distance * 0.95
+
+        log("r_obj: ", r_obj, "thetaLeft: ", obj.thetaLeft, "thetaRight: ", obj.thetaRight)
         if r_obj > 4.0 or np.isnan(r_obj):
             # filter out impossible distance 
             log("Object Locator: {} has dist {}, filtering out".format(name, r_obj))
