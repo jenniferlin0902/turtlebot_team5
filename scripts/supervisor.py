@@ -157,6 +157,8 @@ class Supervisor:
             self.set_mode(RequestMode)
         elif cmd == "nav":
             self.set_mode(NavMode)
+        elif cmd == "home":
+            self.set_mode(HomeMode)
         else:
             warn("Invalid command to state_machine_callback:", cmd)
 
@@ -414,6 +416,20 @@ class StopMode(Mode):
             debug("StopMode: Moving on from stop sign.")
             robot.last_time_stopped = rospy.get_rostime()
             robot.set_mode(NavMode)
+
+
+class HomeMode(Mode):
+    """Navigate to starting position and enter request mode."""
+    @staticmethod
+    def enter(robot):
+        debug("HomeMode: Going to starting position.")
+        robot.stop_moving()
+        robot.nav_goal_pose_x = 0
+        robot.nav_goal_pose_y = 0
+
+    @staticmethod
+    def run(robot):
+        robot.set_mode(NavMode)
 
 
 if __name__ == '__main__':
