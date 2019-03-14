@@ -109,8 +109,9 @@ class Supervisor:
         # Detected objects.
         self.obj_coordinates = {}  # "name" --> (x, y)
 
-
+        # Keep track of time that planning is happening.
         self.nav_mode_enter_time = -1.0
+
         # ==========================================================================================
         # Subscribers.
 
@@ -368,7 +369,6 @@ class NavMode(Mode):
         msg.theta = robot.nav_goal_pose_theta  # Does not matter
         robot.nav_mode_enter_time = rospy.get_rostime().to_sec()
         robot.nav_goal_publisher.publish(msg)
-        
 
     @staticmethod
     def run(robot):
@@ -384,10 +384,10 @@ class NavMode(Mode):
         # msg.x, msg.y, msg.theta = curr_step
         # robot.step_goal_publisher.publish(msg)
 
-        # if astar takes too long 
-        if rospy.get_rostime().to_sec()-robot.nav_mode_enter_time.to_sec < NAV_TIMEOUT:
-            log("Astar time out!!")
-            robot.set_mode(ManualMode)
+        if rospy.get_rostime().to_sec() - robot.nav_mode_enter_time < NAV_TIMEOUT:
+            log("NavMode: Planning path has timed out.")
+            robot.set_mode(RequestMode)
+            return
 
         if robot.step_is_done:
             if robot.path_index >= len(robot.path):
