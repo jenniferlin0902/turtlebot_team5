@@ -96,7 +96,7 @@ class Supervisor:
 
         # Current computed step commands.
         self.step_cmd_vel = Twist()
-        self.step_is_done = False
+        self.step_is_done = True
 
         # Last time stopped at stop sign, do no stopping again for a period.
         self.last_time_stopped = rospy.get_rostime()
@@ -330,7 +330,13 @@ class RequestMode(Mode):
                 warn("RequestMode: Invalid request specified:", curr_request)
             else:
                 debug("RequestMode: Valid request specified:", curr_request)
-                robot.nav_goal_pose_x, robot.nav_goal_pose_y = robot.obj_coordinates[curr_request]
+                x, y = robot.obj_coordinates[curr_request]
+                if np.isnan(x) or np.isnan(y):
+                    warn(curr_request, " has nan in coordinates, skipping.")
+                    return
+
+                robot.nav_goal_pose_x = x
+                robot.nav_goal_pose_y = y
                 robot.set_mode(NavMode)
 
 
@@ -357,21 +363,31 @@ class NavMode(Mode):
 
         # Publish the currently executing step.
         debug("NavMode: Path has {} steps, currently on step {}.".format(len(robot.path), robot.path_index))
-        curr_step = robot.path[robot.path_index]
-        msg = Pose2D()
-        msg.x, msg.y, msg.theta = curr_step
-        robot.step_goal_publisher.publish(msg)
+        # curr_step = robot.path[robot.path_index]
+        # msg = Pose2D()
+        # msg.x, msg.y, msg.theta = curr_step
+        # robot.step_goal_publisher.publish(msg)
 
         if robot.step_is_done:
-            # Finished executing step so move on to next.
-            debug("NavMode: Finished executing step, so moving to next.")
-            robot.path_index += 1
             if robot.path_index >= len(robot.path):
                 # Finished executing all steps.
                 debug("NavMode: Finished executing all steps.")
                 robot.path = None
                 robot.path_index = 0
                 robot.set_mode(RequestMode)
+                return
+            
+            # Finished executing step so move on to next.
+            debug("NavMode: Finished executing step, so moving to next.")
+            robot.step_is_done = False
+
+            curr_step = robot.path[robot.path_index]
+            msg = Pose2D()
+            msg.x, msg.y, msg.theta = curr_step
+            robot.step_goal_publisher.publish(msg)
+
+            robot.path_index += 1
+            
         elif robot.is_detecting_stop_sign() and robot.last_time_stopped > CROSSING_TIME:
             # Detecing new stop sign and window for ignoring has elapsed.
             debug("NavMode: Detecting new stop sign.")

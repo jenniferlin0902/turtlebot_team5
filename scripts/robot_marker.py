@@ -43,6 +43,7 @@ class TurtleBotMaker:
         self.objectList = None
         self.objectLocatorList = None
         self.doneList = []
+        self.num_obj = 0
         rospy.Subscriber('/cmd_pose', Pose2D, self.cmd_pose_callback)
         rospy.Subscriber('/detector/objects', DetectedObjectList, self.object_callback, queue_size=10)
         rospy.Subscriber('/object_location', ObjectLocationList, self.objectLocator_callback, queue_size=10)
@@ -141,6 +142,7 @@ class TurtleBotMaker:
                         marker.header.frame_id = origin_frame
                         marker.type = marker.CUBE
                         marker.text = "Object"
+                        marker.id = self.num_obj
                         marker.action = marker.ADD
                         marker.scale.x = 0.15
                         marker.scale.y = 0.15  # 30cm
@@ -155,6 +157,7 @@ class TurtleBotMaker:
                         self.location_marker_publisher.publish(marker)
                         print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                         self.doneList.append(obj.name)
+                        self.num_obj += 1
                     
             
             

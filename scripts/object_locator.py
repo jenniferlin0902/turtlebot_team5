@@ -56,17 +56,22 @@ class ObjectLocator:
 
     def ekf_update_location(self, name, obj):
         if name not in self.object_ekfs:
-            r_obj = msg.distance
-            alpha_obj = wrapToPi((msg.thetaleft + msg.thetaright)/2)
+            r_obj = obj.distance
+            alpha_obj = wrapToPi((obj.thetaleft + obj.thetaright)/2)
             x = r_obj * np.sin(alpha_obj + self.theta) + self.x
             y = r_obj * np.cos(alpha_obj + self.theta) + self.y
             self.object_ekfs[name] = MeasurementObjectEKF(
                 np.array([x,y]), OBJECT_STATE_COV*np.eye(2), 
                 np.zeros((2,2))) # no contorl noise
+            c = 1
+
         else:
             # doesn't matter since object doesn't move
             self.object_ekfs[name].transition_update(None, 0)
             self.object_ekfs[name].measurement_update(np.zeros[r_obj, alpha_obj], np.array([msg.confidence]))
+            c = self.object[name][1]
+        #self.objects[name] = ((self.objects_ekfs[name].x[0], self.objects_ekfs[name].x[1]), c+1)
+        debug("Ekf: {} at {}".format(name, (self.objects_ekfs[name].x[0], self.objects_ekfs[name].x[1])))
 
 
 
@@ -84,7 +89,7 @@ class ObjectLocator:
             x_new = (c/float(c+1))*x_old + 1/float(c+1)*x
             y_new = (c/float(c+1))*y_old + 1/float(c+1)*y
             self.objects[name] = ((x_new, y_new), c+1) 
-            debug("Saw {} {} times".format(name, c+1))
+            debug("Naive: {} at {} {} times".format(name, (x_new, y_new), c+1))
 
 
     def detected_object_callback(self, msg):
@@ -98,6 +103,7 @@ class ObjectLocator:
             rospy.logdebug("{}: {}".format(name, obj))
             if not self.use_ekf:
                 self.naive_update_location(name, obj)
+                #self.ekf_update_location(name, obj)
             else:
                 self.ekf_update_location(name, obj)
 

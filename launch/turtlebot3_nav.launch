@@ -1,0 +1,15 @@
+<launch>
+  <rosparam param="sim">false</rosparam>
+  <rosparam param="rviz">true</rosparam>
+  <rosparam param="use_tf">true</rosparam>
+  <rosparam param="map">true</rosparam>
+
+  <node pkg="turtlebot_team5" type="supervisor_nav.py" name="turtlebot_supervisor_nav" output="screen"/>
+  <node pkg="turtlebot_team5" type="pose_controller_nav.py" name="turtlebot_pose_controller_nav" />
+  <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" />
+
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_team5)/rviz/nav.rviz"/>
+
+  
+</launch>
