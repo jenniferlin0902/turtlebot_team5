@@ -251,7 +251,8 @@ class Supervisor:
                     self.y = translation[1]
                     euler = tf.transformations.euler_from_quaternion(rotation)
                     self.theta = euler[2]
-                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+                    debug("Supervisor: got tf exception: ", e)
                     pass
 
             self.mode.run(self)
