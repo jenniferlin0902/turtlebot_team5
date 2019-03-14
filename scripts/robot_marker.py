@@ -160,7 +160,7 @@ class TurtleBotMaker:
                         self.location_marker_publisher.publish(marker)
                         print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                         # self.doneList.append(obj.name)
-                        name2id[obj.name] = self.num_obj
+                        self.name2id[obj.name] = self.num_obj
                         self.num_obj += 1
 
                     
