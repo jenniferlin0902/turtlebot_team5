@@ -8,7 +8,7 @@ from std_msgs.msg import Float32MultiArray, String
 import tf
 import numpy as np
 from numpy import linalg
-from utils import wrapToPi
+from utils import wrapToPi, log, error, debug
 from astar import AStar
 from grids import StochOccupancyGrid2D
 import scipy.interpolate
@@ -49,7 +49,7 @@ SMOOTH = .01
 class Navigator:
 
     def __init__(self):
-        rospy.init_node('turtlebot_navigator', anonymous=True)
+        rospy.init_node('turtlebot_navigator', log_level=rospy.DEBUG, anonymous=True)
 
         # current state
         self.x = 0.0
@@ -134,6 +134,8 @@ class Navigator:
         """ computes a path from current state to goal state using A* and sends it to the path controller """
 
         # makes sure we have a location
+        debug("Start computing path to ({}, {})".format(self.x_g, self.y_g))
+
         try:
             (translation,rotation) = self.trans_listener.lookupTransform('/map', '/base_footprint', rospy.Time(0))
             self.x = translation[0]
@@ -142,28 +144,31 @@ class Navigator:
             self.theta = euler[2]
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             self.current_plan = []
+            error("Navigator got tf exception")
             return
-
+        debug("Current location ({})".format((self.x, self.y)))
         # makes sure we have a map
         if not self.occupancy:
             self.current_plan = []
+            error("Navigator: self.occupancy not set")
             return
 
         # if close to the goal, use the pose_controller instead
         if self.close_to_end_location():
-            rospy.loginfo("Navigator: Close to nav goal using pose controller")
-            pose_g_msg = Pose2D()
-            pose_g_msg.x = self.x_g
-            pose_g_msg.y = self.y_g
-            pose_g_msg.theta = self.theta_g
-            self.nav_pose_pub.publish(pose_g_msg)
-            self.current_plan = []
-            self.V_prev = 0
+            log("Navigator: Close to nav goal using pose controller")
+            # pose_g_msg = Pose2D()
+            # pose_g_msg.x = self.x_g
+            # pose_g_msg.y = self.y_g
+            # pose_g_msg.theta = self.theta_g
+            # self.nav_pose_pub.publish(pose_g_msg)
+            # self.current_plan = []
+            # self.V_prev = 0
+            # TODO raise to supervisor
             return
 
         # if there is no plan, we are far from the start of the plan,
         # or the occupancy grid has been updated, update the current plan
-        if len(self.current_plan)==0 or not(self.close_to_start_location()) or self.occupancy_updated:
+        if self.occupancy_updated:
 
             # use A* to compute new plan
             state_min = self.snap_to_grid((-self.plan_horizon, -self.plan_horizon))
@@ -172,9 +177,9 @@ class Navigator:
             x_goal = self.snap_to_grid((self.x_g, self.y_g))
             problem = AStar(state_min,state_max,x_init,x_goal,self.occupancy,self.plan_resolution)
 
-            rospy.loginfo("Navigator: Computing navigation plan")
+            log("Navigator: Computing navigation plan")
             if problem.solve():
-                if len(problem.path) > 3:
+                if len(problem.path) > 0:
                     # cubic spline interpolation requires 4 points
                     self.current_plan = problem.path
                     self.current_plan_start_time = rospy.get_rostime()
@@ -184,11 +189,20 @@ class Navigator:
                     # publish plan for visualization
                     path_msg = Path()
                     path_msg.header.frame_id = 'map'
-                    for state in self.current_plan:
+                    for i, state in enumerate(self.current_plan):
+                        if i != len(self.current_plan) - 1:
+                            next_state = self.current_plan[i+1]                           
+                        orientation = np.array([next_state[0]-state[0], next_state[1]-state[1]])
+                        direction = np.arctan2(orientation[1], orientation[0])
                         pose_st = PoseStamped()
                         pose_st.pose.position.x = state[0]
                         pose_st.pose.position.y = state[1]
-                        pose_st.pose.orientation.w = 1
+                        quant = tf.transformations.quaternion_from_euler(0,0, direction)
+                        pose_st.pose.orientation.x = quant[0]
+                        pose_st.pose.orientation.y = quant[1]
+                        pose_st.pose.orientation.z = quant[2]
+                        pose_st.pose.orientation.w = quant[3]
+
                         pose_st.header.frame_id = 'map'
                         path_msg.poses.append(pose_st)
                     self.nav_path_pub.publish(path_msg)
@@ -204,9 +218,9 @@ class Navigator:
                         path_y.append(self.current_plan[i+1][1])
 
                     # interpolate the path with cubic spline
-                    self.path_x_spline = scipy.interpolate.splrep(path_t, path_x, k=3, s=SMOOTH)
-                    self.path_y_spline = scipy.interpolate.splrep(path_t, path_y, k=3, s=SMOOTH)
-                    self.path_tf = path_t[-1]
+                    # self.path_x_spline = scipy.interpolate.splrep(path_t, path_x, k=3, s=SMOOTH)
+                    # self.path_y_spline = scipy.interpolate.splrep(path_t, path_y, k=3, s=SMOOTH)
+                    # self.path_tf = path_t[-1]
 
                     # to inspect the interpolation and smoothing
                     # t_test = np.linspace(path_t[0],path_t[-1],1000)
@@ -215,96 +229,97 @@ class Navigator:
                     # plt.plot(path_t,path_y,'bo')
                     # plt.plot(t_test,scipy.interpolate.splev(t_test,self.path_y_spline,der=0))
                     # plt.show()
-                else:
-                    rospy.logwarn("Navigator: Path too short, not updating")
+                # else:
+                #     rospy.logwarn("Navigator: Path too short, not updating")
             else:
                 rospy.logwarn("Navigator: Could not find path")
                 self.current_plan = []
 
-        # if we have a path, execute it (we need at least 3 points for this controller)
-        if len(self.current_plan) > 3:
+        # # if we have a path, execute it (we need at least 3 points for this controller)
+        # if len(self.current_plan) > 3:
 
-            # if currently not moving, first line up with the plan
-            if self.V_prev == 0:
-                theta_init = np.arctan2(self.current_plan[1][1]-self.current_plan[0][1],self.current_plan[1][0]-self.current_plan[0][0])
-                theta_err = theta_init-self.theta
-                if abs(theta_err)>THETA_START_THRESH:
-                    cmd_msg = Twist()
-                    cmd_msg.linear.x = 0
-                    cmd_msg.angular.z = THETA_START_P * theta_err
-                    self.nav_vel_pub.publish(cmd_msg)
-                    return
+        #     # if currently not moving, first line up with the plan
+        #     if self.V_prev == 0:
+        #         theta_init = np.arctan2(self.current_plan[1][1]-self.current_plan[0][1],self.current_plan[1][0]-self.current_plan[0][0])
+        #         theta_err = theta_init-self.theta
+        #         if abs(theta_err)>THETA_START_THRESH:
+        #             cmd_msg = Twist()
+        #             cmd_msg.linear.x = 0
+        #             cmd_msg.angular.z = THETA_START_P * theta_err
+        #             self.nav_vel_pub.publish(cmd_msg)
+        #             return
 
-            # compute the "current" time along the path execution
-            t = (rospy.get_rostime()-self.current_plan_start_time).to_sec()
-            t = max(0.0, t)
-            t = min(t, self.path_tf)
+        #     # compute the "current" time along the path execution
+        #     t = (rospy.get_rostime()-self.current_plan_start_time).to_sec()
+        #     t = max(0.0, t)
+        #     t = min(t, self.path_tf)
 
-            x_d = scipy.interpolate.splev(t, self.path_x_spline, der=0)
-            y_d = scipy.interpolate.splev(t, self.path_y_spline, der=0)
-            xd_d = scipy.interpolate.splev(t, self.path_x_spline, der=1)
-            yd_d = scipy.interpolate.splev(t, self.path_y_spline, der=1)
-            xdd_d = scipy.interpolate.splev(t, self.path_x_spline, der=2)
-            ydd_d = scipy.interpolate.splev(t, self.path_y_spline, der=2)
+        #     x_d = scipy.interpolate.splev(t, self.path_x_spline, der=0)
+        #     y_d = scipy.interpolate.splev(t, self.path_y_spline, der=0)
+        #     xd_d = scipy.interpolate.splev(t, self.path_x_spline, der=1)
+        #     yd_d = scipy.interpolate.splev(t, self.path_y_spline, der=1)
+        #     xdd_d = scipy.interpolate.splev(t, self.path_x_spline, der=2)
+        #     ydd_d = scipy.interpolate.splev(t, self.path_y_spline, der=2)
 
-            # publish current desired x and y for visualization only
-            pathsp_msg = PoseStamped()
-            pathsp_msg.header.frame_id = 'map'
-            pathsp_msg.pose.position.x = x_d
-            pathsp_msg.pose.position.y = y_d
-            theta_d = np.arctan2(yd_d,xd_d)
-            quat_d = tf.transformations.quaternion_from_euler(0, 0, theta_d)
-            pathsp_msg.pose.orientation.x = quat_d[0]
-            pathsp_msg.pose.orientation.y = quat_d[1]
-            pathsp_msg.pose.orientation.z = quat_d[2]
-            pathsp_msg.pose.orientation.w = quat_d[3]
-            self.nav_pathsp_pub.publish(pathsp_msg)
+        #     # publish current desired x and y for visualization only
+        #     pathsp_msg = PoseStamped()
+        #     pathsp_msg.header.frame_id = 'map'
+        #     pathsp_msg.pose.position.x = x_d
+        #     pathsp_msg.pose.position.y = y_d
+        #     theta_d = np.arctan2(yd_d,xd_d)
+        #     quat_d = tf.transformations.quaternion_from_euler(0, 0, theta_d)
+        #     pathsp_msg.pose.orientation.x = quat_d[0]
+        #     pathsp_msg.pose.orientation.y = quat_d[1]
+        #     pathsp_msg.pose.orientation.z = quat_d[2]
+        #     pathsp_msg.pose.orientation.w = quat_d[3]
+        #     self.nav_pathsp_pub.publish(pathsp_msg)
 
-            if self.V_prev <= 0.0001:
-                self.V_prev = linalg.norm([xd_d, yd_d])
+        #     if self.V_prev <= 0.0001:
+        #         self.V_prev = linalg.norm([xd_d, yd_d])
 
-            dt = (rospy.get_rostime()-self.V_prev_t).to_sec()
+        #     dt = (rospy.get_rostime()-self.V_prev_t).to_sec()
 
-            xd = self.V_prev*np.cos(self.theta)
-            yd = self.V_prev*np.sin(self.theta)
+        #     xd = self.V_prev*np.cos(self.theta)
+        #     yd = self.V_prev*np.sin(self.theta)
 
-            u = np.array([xdd_d + KPX*(x_d-self.x) + KDX*(xd_d-xd),
-                          ydd_d + KPY*(y_d-self.y) + KDY*(yd_d-yd)])
-            J = np.array([[np.cos(self.theta), -self.V_prev*np.sin(self.theta)],
-                          [np.sin(self.theta), self.V_prev*np.cos(self.theta)]])
-            a, om = linalg.solve(J, u)
-            V = self.V_prev + a*dt
+        #     u = np.array([xdd_d + KPX*(x_d-self.x) + KDX*(xd_d-xd),
+        #                   ydd_d + KPY*(y_d-self.y) + KDY*(yd_d-yd)])
+        #     J = np.array([[np.cos(self.theta), -self.V_prev*np.sin(self.theta)],
+        #                   [np.sin(self.theta), self.V_prev*np.cos(self.theta)]])
+        #     a, om = linalg.solve(J, u)
+        #     V = self.V_prev + a*dt
 
-            # apply saturation limits
-            cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
-            cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
-        elif len(self.current_plan) > 0:
-            # using the pose controller for paths too short
-            # just send the next point
-            pose_g_msg = Pose2D()
-            pose_g_msg.x = self.current_plan[0][0]
-            pose_g_msg.y = self.current_plan[0][1]
-            if len(self.current_plan)>1:
-                pose_g_msg.theta = np.arctan2(self.current_plan[1][1]-self.current_plan[0][1],self.current_plan[1][0]-self.current_plan[0][0])
-            else:
-                pose_g_msg.theta = self.theta_g
-            self.nav_pose_pub.publish(pose_g_msg)
-            return
-        else:
-            # just stop
-            cmd_x_dot = 0
-            cmd_theta_dot = 0
+        #     # apply saturation limits
+        #     cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
+        #     cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
+        # elif len(self.current_plan) > 0:
+        #     # using the pose controller for paths too short
+        #     # just send the next point
+        #     pose_g_msg = Pose2D()
+        #     pose_g_msg.x = self.current_plan[0][0]
+        #     pose_g_msg.y = self.current_plan[0][1]
+        #     if len(self.current_plan)>1:
+        #         pose_g_msg.theta = np.arctan2(self.current_plan[1][1]-self.current_plan[0][1],self.current_plan[1][0]-self.current_plan[0][0])
+        #     else:
+        #         pose_g_msg.theta = self.theta_g
+        #     self.nav_pose_pub.publish(pose_g_msg)
+        #     return
+        # else:
+        #     # just stop
+        #     cmd_x_dot = 0
+        #     cmd_theta_dot = 0
 
-        # saving the last velocity for the controller
-        self.V_prev = cmd_x_dot
-        self.V_prev_t = rospy.get_rostime()
+        # # saving the last velocity for the controller
+        # self.V_prev = cmd_x_dot
+        # self.V_prev_t = rospy.get_rostime()
 
-        cmd_msg = Twist()
-        cmd_msg.linear.x = cmd_x_dot
-        cmd_msg.angular.z = cmd_theta_dot
-        self.nav_vel_pub.publish(cmd_msg)
+        # cmd_msg = Twist()
+        # cmd_msg.linear.x = cmd_x_dot
+        # cmd_msg.angular.z = cmd_theta_dot
+        # self.nav_vel_pub.publish(cmd_msg)
 
 
 if __name__ == '__main__':
     nav = Navigator()
+    log("Navigator started")
     rospy.spin()

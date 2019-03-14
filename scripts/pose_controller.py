@@ -231,7 +231,7 @@ class PoseController:
             elif self.state == PCState.FIX_YAW_FINAL:
                 self.update_current_pose()
                 ctrl_output, err_yaw = self.get_ctrl_output_fix_yaw(self.theta_g)
-                if err_yaw < YAW_PREC:
+                if abs(err_yaw) < YAW_PREC:
                     self.change_state(PCState.IDLE)
 
             self.pub.publish(ctrl_output)
