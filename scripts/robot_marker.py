@@ -139,29 +139,33 @@ class TurtleBotMaker:
                 #for obj in self.objectLocatorList.ob_locs:
                     # if obj.name not in self.doneList:  
                     if obj.name not in self.name2id:  # name2id[name] = id
-                        #print('object not in donelist')
-                        marker = Marker()
-                        marker.header.stamp = rospy.Time(0)
-                        marker.header.frame_id = origin_frame
-                        marker.type = marker.CUBE
-                        marker.text = "Object"
-                        marker.id = self.num_obj
-                        marker.action = marker.ADD
-                        marker.scale.x = 0.15
-                        marker.scale.y = 0.15  # 30cm
-                        marker.scale.z = 0.15  # 30cm
-                        marker.color.a = 1.0
-                        marker.color.r = 1.0
-                        marker.color.g = 0.0
-                        marker.color.b = 1.0
-                        #print('obj.x is {}'.format(obj.x))
-                        marker.pose.position.x = obj.x
-                        marker.pose.position.y = obj.y
-                        self.location_marker_publisher.publish(marker)
-                        print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
-                        # self.doneList.append(obj.name)
-                        self.name2id[obj.name] = self.num_obj
+                        obj_id = self.num_obj
+                        self.name2id[obj.name] = obj_id
                         self.num_obj += 1
+                        #print('object not in donelist')
+                    else:
+                        obj_id = self.name2id[obj.name]
+                    marker = Marker()
+                    marker.header.stamp = rospy.Time(0)
+                    marker.header.frame_id = origin_frame
+                    marker.type = marker.CUBE
+                    marker.text = "Object"
+                    marker.id = obj_id
+                    marker.action = marker.ADD
+                    marker.scale.x = 0.15
+                    marker.scale.y = 0.15  # 30cm
+                    marker.scale.z = 0.15  # 30cm
+                    marker.color.a = 1.0
+                    marker.color.r = 1.0
+                    marker.color.g = 0.0
+                    marker.color.b = 1.0
+                    #print('obj.x is {}'.format(obj.x))
+                    marker.pose.position.x = obj.x
+                    marker.pose.position.y = obj.y
+                    self.location_marker_publisher.publish(marker)
+                    print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
+                    # self.doneList.append(obj.name)
+ 
 
                     
 
