@@ -138,12 +138,12 @@ class Detector:
                 score = scores[i] * PRIOR[c]
                 boxes_r.append(boxes[i])
                 scores_r.append(score)
-                classes_r.append(classes[i])
+                classes_r.append(c)
 
         boxes_f, scores_f, classes_f = [], [], []
         for j in range(len(boxes_r)):
             score = scores_r[j]
-            rospy.logdebug("DetectorResnet: Pre-filtered element {}({:d}) with score {}.".format(self.object_labels[classes_f[j]], classes_f[j], score))
+            rospy.logdebug("DetectorResnet: Pre-filtered element {}({:d}) with score {}.".format(self.object_labels[classes_r[j]], classes_r[j], score))
             if score >= MIN_SCORE:
                 scores_f.append(score)
                 boxes_f.append(boxes_r[j])

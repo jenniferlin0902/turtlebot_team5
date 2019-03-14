@@ -20,7 +20,7 @@ K3 = 0.8 #originally 0.4
 TIMEOUT = np.inf
 
 # maximum velocity
-V_MAX = 0.2
+V_MAX = 0.1
 
 # maximim angular velocity
 W_MAX = 0.5
@@ -114,7 +114,7 @@ class PoseController:
         self.cmd_pose_time = rospy.get_rostime()
         log("PoseController: Got new goal x:{} y:{}, theta:{}".format(self.x_g, self.y_g, self.theta_g))
         # start moving, always turn first
-        self.change_state(PCState.FIX_YAW_INIT)
+        self.change_state(PCState.MOVE_FWD)
 
     def update_current_pose(self):
         if not use_gazebo:
@@ -141,17 +141,17 @@ class PoseController:
             ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
             th_rot = self.theta-self.get_direction(self.x_g,self.y_g)
             angs = wrapToPi(np.array([ang-th_rot, ang])) 
-            alpha = angs[0] 
-            delta = angs[1] 
+            # alpha = angs[0]
+            # delta = angs[1]
 
-            
             if th_rot < YAW_PREC:
+                debug("Facing correct direction, moving forward")
                 V = K1*rho
                 om = 0
             else:
-                debug("Deviate from direction, fixing yaw")
-                V = K1*cos(alpha)
-                om = K2*alpha + K1*np.sinc(2*alpha/np.pi)*(alpha+K3*delta)             
+                debug("Deviated from direction, fixing yaw")
+                V = 0
+                om = th_rot
             cmd_x_dot = np.sign(V)*min(V_MAX, np.abs(V))
             cmd_theta_dot = np.sign(om)*min(W_MAX, np.abs(om))
             debug("ctrl x dot {}, theta dot {}".format(cmd_x_dot, cmd_theta_dot))
@@ -212,7 +212,7 @@ class PoseController:
         return cmd
 
     def run(self):
-        rate = rospy.Rate(10) # 10 Hz
+        rate = rospy.Rate(10)  # 10 Hz
         while not rospy.is_shutdown():
             # don't start until we received the first goal 
             if self.x_g == None:
@@ -224,11 +224,11 @@ class PoseController:
             if self.state == PCState.IDLE:
                 ctrl_output = self.get_ctrl_output_idle()
 
-            elif self.state == PCState.FIX_YAW_INIT:
-                self.update_current_pose()            
-                ctrl_output, err_yaw = self.get_ctrl_output_fix_yaw(self.get_direction(self.x_g, self.y_g))
-                if err_yaw < YAW_PREC:
-                    self.change_state(PCState.MOVE_FWD)
+            # elif self.state == PCState.FIX_YAW_INIT:
+            #     self.update_current_pose()
+            #     ctrl_output, err_yaw = self.get_ctrl_output_fix_yaw(self.get_direction(self.x_g, self.y_g))
+            #     if err_yaw < YAW_PREC:
+            #         self.change_state(PCState.MOVE_FWD)
 
             elif self.state == PCState.MOVE_FWD:
                 self.update_current_pose()            
@@ -245,6 +245,7 @@ class PoseController:
             self.pub.publish(ctrl_output)
                 
             rate.sleep()
+
 
 if __name__ == '__main__':
     pctrl = PoseController()
