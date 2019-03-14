@@ -139,11 +139,8 @@ class PoseController:
 
             rho = linalg.norm(rel_coords) 
             ang = np.arctan2(rel_coords_rot[1],rel_coords_rot[0])+np.pi 
-            angs = wrapToPi(np.array([ang-th_rot, ang])) 
-            alpha = angs[0] 
-            delta = angs[1] 
 
-            th_rot = self.theta-self.get_direction(self.x_g,self.y_g)
+            th_rot = wrapToPi(self.theta-self.get_direction(self.x_g,self.y_g))
             if th_rot < YAW_PREC:
                 V = K1*rho
                 om = 0
