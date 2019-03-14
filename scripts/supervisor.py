@@ -107,7 +107,7 @@ class Supervisor:
         self.delivery_requests = []
 
         # Detected objects.
-        self.obj_coordinates = {}  # "name" --> (x, y)
+        self.obj_coordinates = {"home": (0, 0)}  # "name" --> (x, y)
 
         # Keep track of time that planning is happening.
         self.nav_mode_enter_time = -1.0
@@ -162,8 +162,6 @@ class Supervisor:
             self.set_mode(RequestMode)
         elif cmd == "nav":
             self.set_mode(NavMode)
-        elif cmd == "home":
-            self.set_mode(HomeMode)
         else:
             warn("Invalid command to state_machine_callback:", cmd)
 
@@ -195,6 +193,7 @@ class Supervisor:
         debug("Supervisor: delivery_request_callback: Got {} items:".format(len(items)), items)
         if len(items) > 0:
             self.delivery_requests.extend(items)
+            self.delivery_requests.append("home")
 
     def object_location_callback(self, msg):
         debug("Supervisor: object_location_callback: Got {} locations.".format(len(msg.locations)))
@@ -437,20 +436,6 @@ class StopMode(Mode):
             debug("StopMode: Moving on from stop sign.")
             robot.last_time_stopped = rospy.get_rostime()
             robot.set_mode(NavMode)
-
-
-class HomeMode(Mode):
-    """Navigate to starting position and enter request mode."""
-    @staticmethod
-    def enter(robot):
-        debug("HomeMode: Going to starting position.")
-        robot.stop_moving()
-        robot.nav_goal_pose_x = 0
-        robot.nav_goal_pose_y = 0
-
-    @staticmethod
-    def run(robot):
-        robot.set_mode(NavMode)
 
 
 if __name__ == '__main__':
