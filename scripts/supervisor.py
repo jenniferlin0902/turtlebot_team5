@@ -113,6 +113,18 @@ class Supervisor:
         self.nav_mode_enter_time = -1.0
 
         # ==========================================================================================
+        # Publishers.
+
+        # Robot final destination (for Navigator node).
+        self.nav_goal_publisher = rospy.Publisher('/nav_goal_pose', Pose2D, queue_size=10)
+
+        # Robot next step on way to destination (for PoseController node).
+        self.step_goal_publisher = rospy.Publisher('/step_goal_pose', Pose2D, queue_size=10)
+
+        # Command velocity (used to make robot idle).
+        self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+
+        # ==========================================================================================
         # Subscribers.
 
         # TF frames with respect to different components.
@@ -135,18 +147,6 @@ class Supervisor:
 
         # Control velocity and state from pose controller.
         rospy.Subscriber('/step_cmd', PoseControl, self.step_cmd_callback)
-
-        # ==========================================================================================
-        # Publishers.
-
-        # Robot final destination (for Navigator node).
-        self.nav_goal_publisher = rospy.Publisher('/nav_goal_pose', Pose2D, queue_size=10)
-
-        # Robot next step on way to destination (for PoseController node).
-        self.step_goal_publisher = rospy.Publisher('/step_goal_pose', Pose2D, queue_size=10)
-
-        # Command velocity (used to make robot idle).
-        self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
     # ==============================================================================================
     # Subscriber callbacks.
@@ -236,15 +236,15 @@ class Supervisor:
         self._mode_lock.acquire()
         if self.mode != mode:
             log("StateMachine: exiting", self.mode.__name__, "--> entering", mode.__name__)
-            try:
-                self.mode.exit(self)
-            except Exception as e:
-                error("StateMachine: Got exception from exit() of {}:\n".format(self.mode.__name__, str(e)))
+            # try:
+            self.mode.exit(self)
+            # except Exception as e:
+                # error("StateMachine: Got exception from exit() of {}:\n".format(self.mode.__name__, str(e)))
             self.mode = mode
-            try:
-                self.mode.enter(self)
-            except Exception as e:
-                error("StateMachine: Got exception from enter() of {}:\n".format(self.mode.__name__, str(e)))
+            # try:
+            self.mode.enter(self)
+            # except Exception as e:
+            #     error("StateMachine: Got exception from enter() of {}:\n".format(self.mode.__name__, str(e)))
             log("StateMachine: running", self.mode.__name__)
         else:
             log("StateMachine: already running", self.mode.__name__)
@@ -366,6 +366,8 @@ class NavMode(Mode):
         msg = Pose2D()
         msg.x = robot.nav_goal_pose_x
         msg.y = robot.nav_goal_pose_y
+        if robot.nav_goal_pose_theta is None:
+            robot.nav_goal_pose_theta = 0.0
         msg.theta = robot.nav_goal_pose_theta  # Does not matter
         robot.nav_mode_enter_time = rospy.get_rostime().to_sec()
         robot.nav_goal_publisher.publish(msg)
@@ -373,6 +375,11 @@ class NavMode(Mode):
     @staticmethod
     def run(robot):
         # Wait until path has been computed
+        if rospy.get_rostime().to_sec() - robot.nav_mode_enter_time > NAV_TIMEOUT:
+            log("NavMode: Planning path has timed out.")
+            robot.set_mode(RequestMode)
+            return
+
         if robot.path is None:
             debug("NavMode: No path computed yet, waiting for navigator.")
             return
@@ -383,11 +390,6 @@ class NavMode(Mode):
         # msg = Pose2D()
         # msg.x, msg.y, msg.theta = curr_step
         # robot.step_goal_publisher.publish(msg)
-
-        if rospy.get_rostime().to_sec() - robot.nav_mode_enter_time > NAV_TIMEOUT:
-            log("NavMode: Planning path has timed out.")
-            robot.set_mode(RequestMode)
-            return
 
         if robot.step_is_done:
             if robot.path_index >= len(robot.path):
