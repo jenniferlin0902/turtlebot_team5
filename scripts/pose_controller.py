@@ -56,7 +56,7 @@ class PCState(Enum):
 
 class PoseController:
     def __init__(self):
-        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.INFO, anonymous=True)
+        rospy.init_node('turtlebot_pose_controller_nav', log_level=rospy.DEBUG, anonymous=True)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         # current state
@@ -144,7 +144,7 @@ class PoseController:
             # alpha = angs[0]
             # delta = angs[1]
 
-            if th_rot < YAW_PREC:
+            if np.abs(th_rot) < YAW_PREC:
                 debug("Facing correct direction, moving forward")
                 V = K1*rho
                 om = 0
