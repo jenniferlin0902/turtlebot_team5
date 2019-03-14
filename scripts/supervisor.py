@@ -31,7 +31,7 @@ CROSSING_TIME = 3
 # Time (s) to stop at a stop sign.
 STOP_TIME = 3
 
-# Timeout for nav mode
+# Time (s) for nav mode.
 NAV_TIMEOUT = 10
 
 # ==================================================================================================
@@ -384,7 +384,7 @@ class NavMode(Mode):
         # msg.x, msg.y, msg.theta = curr_step
         # robot.step_goal_publisher.publish(msg)
 
-        if rospy.get_rostime().to_sec() - robot.nav_mode_enter_time < NAV_TIMEOUT:
+        if rospy.get_rostime().to_sec() - robot.nav_mode_enter_time > NAV_TIMEOUT:
             log("NavMode: Planning path has timed out.")
             robot.set_mode(RequestMode)
             return
