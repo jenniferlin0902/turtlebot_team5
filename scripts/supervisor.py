@@ -190,6 +190,7 @@ class Supervisor:
 
     def delivery_request_callback(self, msg):
         items = msg.data.lower().strip().split(",")
+        items = [i.strip() for i in items]
         debug("Supervisor: delivery_request_callback: Got {} items:".format(len(items)), items)
         if len(items) > 0:
             self.delivery_requests.extend(items)
