@@ -59,7 +59,7 @@ class ObjectLocator:
     def ekf_update_location(self, name, obj):
         if name not in self.object_ekfs:
             r_obj = obj.distance
-            alpha_obj = wrapToPi((wrapToPi(obj.thetaleft) + wrapToPi(obj.thetaright)/2)
+            alpha_obj = wrapToPi((wrapToPi(obj.thetaleft) + wrapToPi(obj.thetaright))/2)
             x = r_obj * np.sin(alpha_obj + self.theta) + self.x
             y = r_obj * np.cos(alpha_obj + self.theta) + self.y
             self.object_ekfs[name] = MeasurementObjectEKF(
@@ -76,7 +76,6 @@ class ObjectLocator:
         debug("Ekf: {} at {}".format(name, (self.objects_ekfs[name].x[0], self.objects_ekfs[name].x[1])))
 
 
-
     def naive_update_location(self, name, obj):
         r_obj = obj.distance * 0.95
 
@@ -85,7 +84,7 @@ class ObjectLocator:
             # filter out impossible distance 
             log("Object Locator: {} has dist {}, filtering out".format(name, r_obj))
             return
-        alpha_obj = wrapToPi((obj.thetaleft + obj.thetaright)/2.0)
+        alpha_obj = wrapToPi((wrapToPi(obj.thetaleft) + wrapToPi(obj.thetaright)/2.0))
         x = r_obj * np.cos(alpha_obj + self.theta) + self.x
         y = r_obj * np.sin(alpha_obj + self.theta) + self.y
         debug("r_obj {}, alpha_obj {}, x {}, y {}, self x {}, self y {}".format(r_obj, alpha_obj, x, y, self.x, self.y))
