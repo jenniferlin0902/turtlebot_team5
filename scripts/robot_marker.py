@@ -90,7 +90,7 @@ class TurtleBotMaker:
                 marker.pose.position.y = self.y
                 self.robot_marker_publisher.publish(marker)
                 self.home_check = False
-                print("Home marker ====== ")
+                print("Publishing Home marker")
 
             if self.objectLocatorList:
                 for obj in self.objectLocatorList:
@@ -158,7 +158,6 @@ class TurtleBotMaker:
                 marker.pose.position.x = self.x
                 marker.pose.position.y = self.y
                 self.robot_des_publisher.publish(marker)
-                print("Robot marker ====== ")
                     
     def publish_goal_marker(self, origin_frame): # robot_locator
         for request in self.delivery_requests:

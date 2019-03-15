@@ -121,16 +121,21 @@ class AStar(object):
     def find_nearest_free(self, target):
         frontier = self.get_neighbors(target)
         count = 0
-        while len(frontier) > 0:
-            if count > 24:
+        explored = []
+        while len(frontier) >= 0:
+            if count > 150:
                 break
             neighbor = frontier.pop(0)
+            explored.append(neighbor)
             if self.is_free(neighbor):
                 return neighbor
             else:
-                frontier.extend(self.get_neighbors(neighbor))
+                for n in self.get_neighbors(neighbor):
+                    if n not in explored:
+                        frontier.append(n)
             count += 1
-        error("cannot find any free neighbors")
+        error("cannot find any free neighbors {}".format(count))
+        return target
 
 
     # Solves the planning problem using the A* search algorithm. It places
@@ -143,7 +148,7 @@ class AStar(object):
 
         # make sure x_goal, y_goal is reachable 
         if not self.occupancy.is_free(self.x_goal):
-            x_goal, y_goal = self.find_nearest_free(self.x_goal)
+            self.x_goal = self.find_nearest_free(self.x_goal)
             # 
         self.occupancy.plot(fig_num=fig.number, goal=self.x_goal)
         plt.show()
