@@ -140,13 +140,14 @@ class AStar(object):
     # OUTPUT: Boolean, True if a solution from x_init to x_goal was found
     def solve(self):
         fig = plt.figure()
-        self.occupancy.plot(fig.number)
+
+        # make sure x_goal, y_goal is reachable 
+        if not self.occupancy.is_free(self.x_goal):
+            x_goal, y_goal = self.find_nearest_free(self.x_goal)
+            # 
+        self.occupancy.plot(fig_num=fig.number, goal=self.x_goal)
         plt.show()
         print("Astart started")
-        # make sure x_goal, y_goal is reachable 
-        if not self.occupancy.is_free((self.x_goal, self.y_goal)):
-            x_goal, y_goal = self.find_nearest_free((self.x_goal, self.y_goal))
-            # 
         while len(self.open_set)>0:
             print("Astar: lenth of open_set {}".format(len(self.open_set)))
             x = self.find_best_f_score()

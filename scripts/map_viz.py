@@ -1,5 +1,5 @@
 import rospy
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid, MapMetaData
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,7 +13,9 @@ class MapViz:
         self.map_origin = [0,0]
         self.map_probs = []
         self.occupancy = None
+        self.occupancy_updated = False
         rospy.Subscriber('/map', OccupancyGrid, self.map_callback)
+        rospy.Subscriber('/map_metadata', MapMetaData, self.map_metadata_callback)
 
     def map_metadata_callback(self, msg):
         self.map_width = msg.width
@@ -23,6 +25,7 @@ class MapViz:
 
 
     def map_callback(self,msg):
+        print("got caallback")
         self.map_probs = msg.data
         if self.map_width>0 and self.map_height>0 and len(self.map_probs)>0:
             self.occupancy = StochOccupancyGrid2D(self.map_resolution,
@@ -30,7 +33,7 @@ class MapViz:
                                                   self.map_height,
                                                   self.map_origin[0],
                                                   self.map_origin[1],
-                                                  1,
+                                                  5,
                                                   self.map_probs)
             self.occupancy_updated = True
     
@@ -125,6 +128,7 @@ class StochOccupancyGrid2D(object):
         return (1.0-p_total) < self.thresh
 
     def plot(self, fig_num=0):
+        print("plotting")
         fig = plt.figure(fig_num)
         pts = []
         for i in range(len(self.probs)):
@@ -139,10 +143,13 @@ class StochOccupancyGrid2D(object):
         plt.scatter(pts_array[:,0],pts_array[:,1],color="red",zorder=15,label='planning resolution')
 
 if __name__ == '__main__':
-    mapViz = mapViz()
-    if mapViz.occupancy_updated:
-        mapViz.show_map()
-    exit(1)
+    mapViz = MapViz()
+    rate = rospy.Rate(10)
+    while not rospy.is_shutdown():
+        if mapViz.occupancy_updated:
+            mapViz.show_map()
+            exit(1)
+        rate.sleep()
 ### TESTING
 
 # # A simple example

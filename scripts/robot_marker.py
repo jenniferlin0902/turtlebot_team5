@@ -205,12 +205,12 @@ class TurtleBotMaker:
                         self.goal_marker_publisher.publish(marker)
 
             
-        items = msg.data.lower().strip().split(",")
-        items = [i.strip() for i in items]
-        debug("Supervisor: delivery_request_callback: Got {} items:".format(len(items)), items)
-        if len(items) > 0:
-            self.delivery_requests.extend(items)
-            self.delivery_requests.append("home")
+        # items = msg.data.lower().strip().split(",")
+        # items = [i.strip() for i in items]
+        # debug("Supervisor: delivery_request_callback: Got {} items:".format(len(items)), items)
+        # if len(items) > 0:
+        #     self.delivery_requests.extend(items)
+        #     self.delivery_requests.append("home")
 
             
 

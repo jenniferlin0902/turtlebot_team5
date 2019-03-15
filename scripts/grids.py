@@ -112,7 +112,7 @@ class StochOccupancyGrid2D(object):
                     p_total *= (1.0-max(0.0,float(self.probs[grid_y * self.width + grid_x])/100.0))
         return (1.0-p_total) < self.thresh
 
-    def plot(self, fig_num=0):
+    def plot(self, fig_num=0, goal=None):
         fig = plt.figure(fig_num)
         pts = []
         for i in range(len(self.probs)):
@@ -125,3 +125,5 @@ class StochOccupancyGrid2D(object):
                 pts.append((x,y))
         pts_array = np.array(pts)
         plt.scatter(pts_array[:,0],pts_array[:,1],color="red",zorder=15,label='planning resolution')
+        if goal:
+            plt.scatter(goal[0], goal[1], color="green")
