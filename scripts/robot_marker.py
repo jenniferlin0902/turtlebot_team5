@@ -30,7 +30,7 @@ class TurtleBotMaker:
         goal_topic = 'goal_marker'
         location_topic = 'location_topic'
         self.robot_marker_publisher = rospy.Publisher(robot_topic, Marker, queue_size=15)
-        self.robot_des_publisher = rospy.Publisher(robot_des_topic, Marker, queue_size=15)
+        # self.robot_des_publisher = rospy.Publisher(robot_des_topic, Marker, queue_size=15)
         self.goal_marker_publisher = rospy.Publisher(goal_topic, Marker, queue_size=15)
         self.location_marker_publisher = rospy.Publisher(location_topic, Marker, queue_size=15)
         
@@ -77,20 +77,20 @@ class TurtleBotMaker:
                 marker.text = "Home"
                 marker.type = marker.SPHERE
                 marker.action = marker.ADD
-                marker.id = 999 # newly added
-                marker.scale.x = 0.3
-                marker.scale.y = 0.3 # 15cm
-                marker.scale.z = 0.3 # 15cm
+                # marker.id = 999 # newly added
+                marker.scale.x = 0.15
+                marker.scale.y = 0.15 # 15cm
+                marker.scale.z = 0.15 # 15cm
                 marker.color.a = 1.0
                 marker.color.r = 1.0
                 marker.color.g = 0.0
                 marker.color.b = 0.0
                 marker.pose.orientation.w = self.theta
-                marker.pose.position.x = self.x
-                marker.pose.position.y = self.y
+                marker.pose.position.x = 0.0
+                marker.pose.position.y = 0.0
                 self.robot_marker_publisher.publish(marker)
                 self.home_check = False
-                print("Publishing Home marker")
+                # print("Home marker ====== ")
 
             if self.objectLocatorList:
                 for obj in self.objectLocatorList:
@@ -140,24 +140,25 @@ class TurtleBotMaker:
                     self.location_marker_publisher.publish(marker)
 
     
-    def publish_des_marker(self, origin_frame): # robot_locator      
-                marker = Marker()
-                marker.header.stamp = rospy.Time(0)
-                marker.header.frame_id = origin_frame
-                marker.type = marker.SPHERE
-                marker.text = "Robot"
-                marker.action = marker.ADD
-                marker.scale.x = 0.15
-                marker.scale.y = 0.15 # 15cm
-                marker.scale.z = 0.15 # 15cm
-                marker.color.a = 1.0
-                marker.color.r = 0.0
-                marker.color.g = 51.0/255.0
-                marker.color.b = 153.0/255.0
-                marker.pose.orientation.w = self.theta
-                marker.pose.position.x = self.x
-                marker.pose.position.y = self.y
-                self.robot_des_publisher.publish(marker)
+    # def publish_des_marker(self, origin_frame): # robot_locator      
+    #             marker = Marker()
+    #             marker.action = marker.ADD
+    #             marker.header.stamp = rospy.Time(0)
+    #             marker.header.frame_id = origin_frame
+    #             marker.type = marker.SPHERE
+    #             marker.text = "Robot"
+    #             marker.scale.x = 0.15
+    #             marker.scale.y = 0.15 # 15cm
+    #             marker.scale.z = 0.15 # 15cm
+    #             marker.color.a = 1.0
+    #             marker.color.r = 0.0
+    #             marker.color.g = 51.0/255.0
+    #             marker.color.b = 153.0/255.0
+    #             marker.pose.orientation.w = self.theta
+    #             marker.pose.position.x = self.x
+    #             marker.pose.position.y = self.y
+    #             self.robot_des_publisher.publish(marker)
+    #             print("Robot marker ====== ")
                     
     def publish_goal_marker(self, origin_frame): # robot_locator
         for request in self.delivery_requests:
@@ -202,6 +203,8 @@ class TurtleBotMaker:
                             marker.color.b = 255.0/255.0
                         self.goal_marker_publisher.publish(marker)
 
+
+
             
     def object_callback(self, msg):
         self.objectList = msg.ob_msgs
@@ -228,7 +231,7 @@ class TurtleBotMaker:
                 euler = tf.transformations.euler_from_quaternion(rotation)
                 self.theta = euler[2]
                 self.publish_marker(origin_frame)
-                self.publish_des_marker(origin_frame)
+                # self.publish_des_marker(origin_frame)
                 self.publish_goal_marker(origin_frame)
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
