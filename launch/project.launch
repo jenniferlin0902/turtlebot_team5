@@ -4,6 +4,12 @@
   <rosparam param="use_tf">true</rosparam>
   <rosparam param="rviz">true</rosparam>
 
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find turtlebot_team5)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+
+  <!-- <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="10.0" />
+  </node> -->
+
   <node pkg="turtlebot_team5" type="supervisor.py" name="turtlebot_supervisor" output="screen"/>
   <node pkg="turtlebot_team5" type="navigator.py" name="turtlebot_navigator" output="screen"/>
   <node pkg="turtlebot_team5" type="pose_controller.py" name="turtlebot_pose_controller" output="screen"/>
