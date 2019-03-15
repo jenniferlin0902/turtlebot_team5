@@ -26,10 +26,11 @@ class TurtleBotMaker:
         self.theta_g=0
         self.home_check = True
         robot_topic = 'robot_marker'
+        robot_des_topic = 'robot_des_marker'
         goal_topic = 'goal_marker'
-        # angle_topic = 'angle_topic'
         location_topic = 'location_topic'
         self.robot_marker_publisher = rospy.Publisher(robot_topic, Marker, queue_size=15)
+        self.robot_des_publisher = rospy.Publisher(robot_des_topic, Marker, queue_size=15)
         self.goal_marker_publisher = rospy.Publisher(goal_topic, Marker, queue_size=15)
         # self.marker_line = rospy.Publisher(angle_topic, Marker, queue_size=15)
         self.location_marker_publisher = rospy.Publisher(location_topic, Marker, queue_size=15)
@@ -92,24 +93,24 @@ class TurtleBotMaker:
                 marker.pose.position.y = self.y
                 self.robot_marker_publisher.publish(marker)
                 self.home_check = False
-            else:            
-                marker = Marker()
-                marker.header.stamp = rospy.Time(0)
-                marker.header.frame_id = origin_frame
-                marker.type = marker.SPHERE
-                marker.text = "Robot"
-                marker.action = marker.ADD
-                marker.scale.x = 0.15
-                marker.scale.y = 0.15 # 15cm
-                marker.scale.z = 0.15 # 15cm
-                marker.color.a = 1.0
-                marker.color.r = 0.0
-                marker.color.g = 1.0
-                marker.color.b = 0.0
-                marker.pose.orientation.w = self.theta
-                marker.pose.position.x = self.x
-                marker.pose.position.y = self.y
-                self.robot_marker_publisher.publish(marker)
+            # else:            
+            #     marker = Marker()
+            #     marker.header.stamp = rospy.Time(0)
+            #     marker.header.frame_id = origin_frame
+            #     marker.type = marker.SPHERE
+            #     marker.text = "Robot"
+            #     marker.action = marker.ADD
+            #     marker.scale.x = 0.15
+            #     marker.scale.y = 0.15 # 15cm
+            #     marker.scale.z = 0.15 # 15cm
+            #     marker.color.a = 1.0
+            #     marker.color.r = 0.0
+            #     marker.color.g = 1.0
+            #     marker.color.b = 0.0
+            #     marker.pose.orientation.w = self.theta
+            #     marker.pose.position.x = self.x
+            #     marker.pose.position.y = self.y
+            #     self.robot_marker_publisher.publish(marker)
 
             marker = Marker()
             marker.header.stamp = rospy.Time(0) #### To be modified 
@@ -156,17 +157,59 @@ class TurtleBotMaker:
                     marker.scale.y = 0.15  # 30cm
                     marker.scale.z = 0.15  # 30cm
                     marker.color.a = 1.0
-                    marker.color.r = 1.0
-                    marker.color.g = 0.0
-                    marker.color.b = 1.0
+                    if obj.name == "banana":
+                        marker.color.r = 255.0/255.0
+                        marker.color.g = 255.0/255.0
+                        marker.color.b = 0.0
+                    elif obj.name == "donut":
+                        marker.color.r = 255.0/255.0
+                        marker.color.g = 153.0/255.0
+                        marker.color.b = 204.0/255.0
+                    elif obj.name == "broccoli":
+                        marker.color.r = 0.0/255.0
+                        marker.color.g = 153.0/255.0
+                        marker.color.b = 51.0/255.0
+                    elif obj.name == "apple":
+                        marker.color.r = 255.0/255.0
+                        marker.color.g = 51.0/255.0
+                        marker.color.b = 0.0
+                    elif obj.name == "stop_sign":
+                        marker.color.r = 255.0/255.0
+                        marker.color.g = 102.0/255.0
+                        marker.color.b = 0.0/255.0
+                    else: # blue
+                        marker.color.r = 0.0/255.0
+                        marker.color.g = 102.0/255.0
+                        marker.color.b = 255.0/255.0
+
+
+                    
+
                     #print('obj.x is {}'.format(obj.x))
                     marker.pose.position.x = obj.x
                     marker.pose.position.y = obj.y
                     self.location_marker_publisher.publish(marker)
                     #print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
                     # self.doneList.append(obj.name)
- 
-
+    
+    def publish_des_marker(self, origin_frame): # robot_locator      
+                marker = Marker()
+                marker.header.stamp = rospy.Time(0)
+                marker.header.frame_id = origin_frame
+                marker.type = marker.SPHERE
+                marker.text = "Robot"
+                marker.action = marker.ADD
+                marker.scale.x = 0.15
+                marker.scale.y = 0.15 # 15cm
+                marker.scale.z = 0.15 # 15cm
+                marker.color.a = 1.0
+                marker.color.r = 0.0
+                marker.color.g = 51.0/255.0
+                marker.color.b = 153.0/255.0
+                marker.pose.orientation.w = self.theta
+                marker.pose.position.x = self.x
+                marker.pose.position.y = self.y
+                self.robot_des_publisher.publish(marker)
                     
 
             
@@ -240,6 +283,7 @@ class TurtleBotMaker:
                 euler = tf.transformations.euler_from_quaternion(rotation)
                 self.theta = euler[2]
                 self.publish_marker(origin_frame)
+                self.publish_des_marker(origin_frame)
                 #self.publish_line(origin_frame) #ZACH COMMENTED THIS OUT
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
