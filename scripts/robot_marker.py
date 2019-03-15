@@ -32,24 +32,21 @@ class TurtleBotMaker:
         self.robot_marker_publisher = rospy.Publisher(robot_topic, Marker, queue_size=15)
         self.robot_des_publisher = rospy.Publisher(robot_des_topic, Marker, queue_size=15)
         self.goal_marker_publisher = rospy.Publisher(goal_topic, Marker, queue_size=15)
-        # self.marker_line = rospy.Publisher(angle_topic, Marker, queue_size=15)
         self.location_marker_publisher = rospy.Publisher(location_topic, Marker, queue_size=15)
         
         # how is nav_cmd being decided -- human manually setting it, or rviz
-        
-        # # if using gazebo, we have access to perfect state
-        # if use_gazebo:
-        #     rospy.Subscriber('/gazebo/model_states', ModelStates, self.gazebo_callback)
-
+    
         self.objectList = None
         self.objectLocatorList = None
         self.doneList = []
         self.name2id = {} 
+        self.delivery_requests = []
         
         self.num_obj = 0
         rospy.Subscriber('/cmd_pose', Pose2D, self.cmd_pose_callback)
         rospy.Subscriber('/detector/objects', DetectedObjectList, self.object_callback, queue_size=10)
         rospy.Subscriber('/object_location', ObjectLocationList, self.objectLocator_callback, queue_size=10)
+        rospy.Subscriber('/delivery_request', String, self.delivery_request_callback)
 
     def cmd_pose_callback(self, data):
         ######### YOUR CODE HERE ############
@@ -57,7 +54,6 @@ class TurtleBotMaker:
         self.x_g = data.x
         self.y_g = data.y
         self.theta_g = data.theta
-        #print("GOT cmd pose {}", (data.x, data.y))
         ######### END OF YOUR CODE ##########
 
     def gazebo_callback(self, msg):
@@ -81,6 +77,7 @@ class TurtleBotMaker:
                 marker.text = "Home"
                 marker.type = marker.SPHERE
                 marker.action = marker.ADD
+                marker.id = 999 # newly added
                 marker.scale.x = 0.3
                 marker.scale.y = 0.3 # 15cm
                 marker.scale.z = 0.3 # 15cm
@@ -93,57 +90,14 @@ class TurtleBotMaker:
                 marker.pose.position.y = self.y
                 self.robot_marker_publisher.publish(marker)
                 self.home_check = False
-            # else:            
-            #     marker = Marker()
-            #     marker.header.stamp = rospy.Time(0)
-            #     marker.header.frame_id = origin_frame
-            #     marker.type = marker.SPHERE
-            #     marker.text = "Robot"
-            #     marker.action = marker.ADD
-            #     marker.scale.x = 0.15
-            #     marker.scale.y = 0.15 # 15cm
-            #     marker.scale.z = 0.15 # 15cm
-            #     marker.color.a = 1.0
-            #     marker.color.r = 0.0
-            #     marker.color.g = 1.0
-            #     marker.color.b = 0.0
-            #     marker.pose.orientation.w = self.theta
-            #     marker.pose.position.x = self.x
-            #     marker.pose.position.y = self.y
-            #     self.robot_marker_publisher.publish(marker)
+                print("Home marker ====== ")
 
-            marker = Marker()
-            marker.header.stamp = rospy.Time(0) #### To be modified 
-            marker.header.frame_id = origin_frame
-            marker.type = marker.CYLINDER
-            marker.text = "Goal"
-            marker.action = marker.ADD
-            marker.scale.x = 0.15
-            marker.scale.y = 0.15 # 15cm
-            marker.scale.z = 0.15 # 15cm
-            marker.color.a = 1.0
-            marker.color.r = 1.0
-            marker.color.g = 0.0
-            marker.color.b = 0.0
-            marker.pose.orientation.w = self.theta_g
-            marker.pose.position.x = self.x_g
-            marker.pose.position.y = self.y_g
-            self.goal_marker_publisher.publish(marker)
-
-            # for (int) set or sth don't add if exist
-            #print("object list is {}".format(self.objectList))
             if self.objectLocatorList:
-                #ZACH CHANGED THIS
-                #print("object locator list in publish marker is {}".format(self.objectLocatorList))
                 for obj in self.objectLocatorList:
-                    #print("object is {}".format(obj))
-                #for obj in self.objectLocatorList.ob_locs:
-                    # if obj.name not in self.doneList:  
                     if obj.name not in self.name2id:  # name2id[name] = id
                         obj_id = self.num_obj
                         self.name2id[obj.name] = obj_id
                         self.num_obj += 1
-                        #print('object not in donelist')
                     else:
                         obj_id = self.name2id[obj.name]
                     marker = Marker()
@@ -181,16 +135,10 @@ class TurtleBotMaker:
                         marker.color.r = 0.0/255.0
                         marker.color.g = 102.0/255.0
                         marker.color.b = 255.0/255.0
-
-
-                    
-
-                    #print('obj.x is {}'.format(obj.x))
                     marker.pose.position.x = obj.x
                     marker.pose.position.y = obj.y
                     self.location_marker_publisher.publish(marker)
-                    #print("putting marker at x={}, y={}".format(marker.pose.position.x,marker.pose.position.y))
-                    # self.doneList.append(obj.name)
+
     
     def publish_des_marker(self, origin_frame): # robot_locator      
                 marker = Marker()
@@ -210,71 +158,69 @@ class TurtleBotMaker:
                 marker.pose.position.x = self.x
                 marker.pose.position.y = self.y
                 self.robot_des_publisher.publish(marker)
+                print("Robot marker ====== ")
                     
-
-            
+    def publish_goal_marker(self, origin_frame): # robot_locator
+        for request in self.delivery_requests:
+            if self.objectLocatorList:  
+                for obj in self.objectLocatorList:
+                    if obj.name == request:
+                        marker = Marker()
+                        marker.header.stamp = rospy.Time(0)
+                        marker.header.frame_id = origin_frame
+                        marker.type = marker.CYLINDER
+                        marker.text = "Goal"
+                        marker.action = marker.ADD
+                        marker.scale.x = 0.15
+                        marker.scale.y = 0.15 # 15cm
+                        marker.scale.z = 0.3 # 15cm
+                        marker.color.a = 0.5
+                        marker.pose.position.x = obj.x
+                        marker.pose.position.y = obj.y
+                        if request == "banana":
+                            marker.color.r = 255.0/255.0
+                            marker.color.g = 255.0/255.0
+                            marker.color.b = 0.0
+                        elif request == "donut":
+                            marker.color.r = 255.0/255.0
+                            marker.color.g = 153.0/255.0
+                            marker.color.b = 204.0/255.0
+                        elif request == "broccoli":
+                            marker.color.r = 0.0/255.0
+                            marker.color.g = 153.0/255.0
+                            marker.color.b = 51.0/255.0
+                        elif request == "apple":
+                            marker.color.r = 255.0/255.0
+                            marker.color.g = 51.0/255.0
+                            marker.color.b = 0.0
+                        elif request == "stop_sign":
+                            marker.color.r = 255.0/255.0
+                            marker.color.g = 102.0/255.0
+                            marker.color.b = 0.0/255.0
+                        else: # blue
+                            marker.color.r = 0.0/255.0
+                            marker.color.g = 102.0/255.0
+                            marker.color.b = 255.0/255.0
+                        self.goal_marker_publisher.publish(marker)
 
             
     def object_callback(self, msg):
         self.objectList = msg.ob_msgs
-        #print("in object callback, object list is {}".format(self.objectList))
 
     def objectLocator_callback(self, msg):
         self.objectLocatorList = msg.locations #changed from msg
-        #print("in object locator callback, object locator list is {}".format(msg))
-        
 
-    # def publish_line(self, origin_frame):
-    #     if self.objectList:
-    #             #ZACH CHANGED THIS
-    #         #print("object locator list in publish line is {}".format(self.objectList))
-    #         for obj in self.objectList:
-    #         # if obj.ob_msgs.name == "stop sign": # to be modified based on the object classes
-    #                                               # using different marker 
-    #             theta_l = obj.thetaleft
-    #             theta_r = obj.thetaright
-    #             dist = obj.distance
-    #             # scale = Vector3(2,4,0.69)
-    #             scale = Vector3(0.1,0.1,0.1)
-    #             self.marker_line.publish(self.make_arrow_points_marker(scale, Point(self.x, self.y, 0), 
-    #                         Point(self.x + dist * np.cos(self.theta + theta_l) , 
-    #                               self.y + dist * np.sin(self.theta + theta_l) ,0), origin_frame))
-                
-    #             self.marker_line.publish(self.make_arrow_points_marker(scale, Point(self.x, self.y, 0), 
-    #                         Point(self.x + dist * np.cos(self.theta - theta_r) , 
-    #                               self.y + dist * np.sin(self.theta - theta_r) ,0), origin_frame))
-    #         self.objectList = []
+    def delivery_request_callback(self, msg):
+        items = msg.data.lower().strip().split(",")
+        items = [i.strip() for i in items]
+        debug("Supervisor: delivery_request_callback: Got {} items:".format(len(items)), items)
+        if len(items) > 0:
+            self.delivery_requests.extend(items)
+            self.delivery_requests.append("home")
+    
 
-
-    # def make_arrow_points_marker(self, scale, tail, tip, origin_frame):
-    # # def make_arrow_points_marker(self, scale, tail, tip, idnum, origin_frame):
-    #     # make a visualization marker array for the occupancy grid
-    #     m = Marker()
-    #     m.action = Marker.ADD
-    #     t = rospy.Duration(0.2)
-    #     # t = rospy.Duration()
-    #     m.lifetime = t
-    #     # m.header.frame_id = '/base_link'
-    #     m.header.frame_id = origin_frame
-    #     m.header.stamp = rospy.Time.now()
-    #     m.ns = 'points_arrows'
-    #     # m.id = idnum  # Arrow (ARROW=0), Cube (CUBE=1), Sphere (SPHERE=2), Cylinder (CYLINDER=3)
-    #                     # Line Strip (LINE_STRIP=4), Line List (LINE_LIST=5), Cube List (CUBE_LIST=6)
-    #                     # Sphere List (SPHERE_LIST=7)
-    #     m.type = Marker.ARROW
-    #     m.pose.orientation.y = 0
-    #     m.pose.orientation.w = 1
-    #     m.scale = scale
-    #     m.color.r = 100/256.0
-    #     m.color.g = 100/256.0
-    #     m.color.b = 100/256.0
-    #     m.color.a = 0.8
-    #     m.points = [ tail, tip ]
-    #     # m.action = Marker.DELETE
-    #     return m
 
     def loop(self):
-        # if not use_gazebo:
             try:
                 origin_frame = "/map" if mapping else "/odom"
                 (translation,rotation) = self.trans_listener.lookupTransform(origin_frame, '/base_footprint', rospy.Time(0))
@@ -284,7 +230,7 @@ class TurtleBotMaker:
                 self.theta = euler[2]
                 self.publish_marker(origin_frame)
                 self.publish_des_marker(origin_frame)
-                #self.publish_line(origin_frame) #ZACH COMMENTED THIS OUT
+                self.publish_goal_marker(origin_frame)
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 pass
 

@@ -1,35 +1,50 @@
+import rospy
+from nav_msgs.msg import OccupancyGrid, MapMetaData
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+
+class MapViz:
+    def __init__(self):
+        rospy.init_node('map_viz', log_level=rospy.DEBUG)
+        # map parameters
+        self.map_width = 0
+        self.map_height = 0
+        self.map_resolution = 0
+        self.map_origin = [0,0]
+        self.map_probs = []
+        self.occupancy = None
+        self.occupancy_updated = False
+        rospy.Subscriber('/map', OccupancyGrid, self.map_callback)
+        rospy.Subscriber('/map_metadata', MapMetaData, self.map_metadata_callback)
+
+    def map_metadata_callback(self, msg):
+        self.map_width = msg.width
+        self.map_height = msg.height
+        self.map_resolution = msg.resolution
+        self.map_origin = (msg.origin.position.x,msg.origin.position.y)
 
 
-# A 2D state space grid with a set of rectangular obstacles. The grid is fully deterministic
-class DetOccupancyGrid2D(object):
-    def __init__(self, width, height, obstacles):
-        self.width = width
-        self.height = height
-        self.obstacles = obstacles
+    def map_callback(self,msg):
+        print("got caallback")
+        self.map_probs = msg.data
+        if self.map_width>0 and self.map_height>0 and len(self.map_probs)>0:
+            self.occupancy = StochOccupancyGrid2D(self.map_resolution,
+                                                  self.map_width,
+                                                  self.map_height,
+                                                  self.map_origin[0],
+                                                  self.map_origin[1],
+                                                  5,
+                                                  self.map_probs)
+            self.occupancy_updated = True
+    
+    def show_map(self):
+        fig = plt.figure()
+        self.occupancy.plot(fig.number)
+        plt.show()
+    
+    def run(self):
+        self.show_map()
 
-    def is_free(self, x):
-        for obs in self.obstacles:
-            inside = True
-            for dim in range(len(x)):
-                if x[dim] < obs[0][dim] or x[dim] > obs[1][dim]:
-                    inside = False
-                    break
-            if inside:
-                return False
-        return True
-
-    def plot(self, fig_num=0):
-        fig = plt.figure(fig_num)
-        for obs in self.obstacles:
-            ax = fig.add_subplot(111, aspect='equal')
-            ax.add_patch(
-            patches.Rectangle(
-            obs[0],
-            obs[1][0]-obs[0][0],
-            obs[1][1]-obs[0][1],))
 
 class StochOccupancyGrid2D(object):
     def __init__(self, resolution, width, height, origin_x, origin_y,
@@ -112,7 +127,8 @@ class StochOccupancyGrid2D(object):
                     p_total *= (1.0-max(0.0,float(self.probs[grid_y * self.width + grid_x])/100.0))
         return (1.0-p_total) < self.thresh
 
-    def plot(self, fig_num=0, goal=None):
+    def plot(self, fig_num=0):
+        print("plotting")
         fig = plt.figure(fig_num)
         pts = []
         for i in range(len(self.probs)):
@@ -125,5 +141,25 @@ class StochOccupancyGrid2D(object):
                 pts.append((x,y))
         pts_array = np.array(pts)
         plt.scatter(pts_array[:,0],pts_array[:,1],color="red",zorder=15,label='planning resolution')
-        if goal:
-            plt.scatter(goal[0], goal[1], color="green")
+
+if __name__ == '__main__':
+    mapViz = MapViz()
+    rate = rospy.Rate(10)
+    while not rospy.is_shutdown():
+        if mapViz.occupancy_updated:
+            mapViz.show_map()
+            exit(1)
+        rate.sleep()
+### TESTING
+
+# # A simple example
+# width = 10
+# height = 10
+# x_init = (0,0)
+# x_goal = (8,8)
+# obstacles = [((6,6),(8,7)),((2,1),(4,2)),((2,4),(4,6)),((6,2),(8,4))]
+# occupancy = DetOccupancyGrid2D(width, height, obstacles)
+
+# A large random example
+# width = 101
+# heig
