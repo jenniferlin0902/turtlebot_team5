@@ -77,6 +77,7 @@ class TurtleBotMaker:
                 marker.text = "Home"
                 marker.type = marker.SPHERE
                 marker.action = marker.ADD
+                marker.id = 999 # newly added
                 marker.scale.x = 0.3
                 marker.scale.y = 0.3 # 15cm
                 marker.scale.z = 0.3 # 15cm
@@ -89,6 +90,7 @@ class TurtleBotMaker:
                 marker.pose.position.y = self.y
                 self.robot_marker_publisher.publish(marker)
                 self.home_check = False
+                print("Home marker ====== ")
 
             if self.objectLocatorList:
                 for obj in self.objectLocatorList:
@@ -133,10 +135,6 @@ class TurtleBotMaker:
                         marker.color.r = 0.0/255.0
                         marker.color.g = 102.0/255.0
                         marker.color.b = 255.0/255.0
-
-
-                    
-
                     marker.pose.position.x = obj.x
                     marker.pose.position.y = obj.y
                     self.location_marker_publisher.publish(marker)
@@ -160,9 +158,10 @@ class TurtleBotMaker:
                 marker.pose.position.x = self.x
                 marker.pose.position.y = self.y
                 self.robot_des_publisher.publish(marker)
+                print("Robot marker ====== ")
                     
     def publish_goal_marker(self, origin_frame): # robot_locator
-        for requet in self.delivery_requests:
+        for request in self.delivery_requests:
             if self.objectLocatorList:  
                 for obj in self.objectLocatorList:
                     if obj.name == request:
@@ -178,7 +177,7 @@ class TurtleBotMaker:
                         marker.color.a = 0.5
                         marker.pose.position.x = obj.x
                         marker.pose.position.y = obj.y
-                        if requet == "banana":
+                        if request == "banana":
                             marker.color.r = 255.0/255.0
                             marker.color.g = 255.0/255.0
                             marker.color.b = 0.0
@@ -203,16 +202,6 @@ class TurtleBotMaker:
                             marker.color.g = 102.0/255.0
                             marker.color.b = 255.0/255.0
                         self.goal_marker_publisher.publish(marker)
-
-            
-        # items = msg.data.lower().strip().split(",")
-        # items = [i.strip() for i in items]
-        # debug("Supervisor: delivery_request_callback: Got {} items:".format(len(items)), items)
-        # if len(items) > 0:
-        #     self.delivery_requests.extend(items)
-        #     self.delivery_requests.append("home")
-
-            
 
             
     def object_callback(self, msg):
