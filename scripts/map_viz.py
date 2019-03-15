@@ -1,5 +1,5 @@
 import rospy
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid,MapMetaData
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,7 +13,9 @@ class MapViz:
         self.map_origin = [0,0]
         self.map_probs = []
         self.occupancy = None
+        self.occupancy_updated = False
         rospy.Subscriber('/map', OccupancyGrid, self.map_callback)
+        rospy.Subscriber('/map_metadata', MapMetaData, self.map_metadata_callback)
 
     def map_metadata_callback(self, msg):
         self.map_width = msg.width
@@ -21,20 +23,22 @@ class MapViz:
         self.map_resolution = msg.resolution
         self.map_origin = (msg.origin.position.x,msg.origin.position.y)
 
-
     def map_callback(self,msg):
         self.map_probs = msg.data
         if self.map_width>0 and self.map_height>0 and len(self.map_probs)>0:
+            print("Got call back map")
             self.occupancy = StochOccupancyGrid2D(self.map_resolution,
                                                   self.map_width,
                                                   self.map_height,
                                                   self.map_origin[0],
                                                   self.map_origin[1],
-                                                  1,
+                                                  4,
                                                   self.map_probs)
             self.occupancy_updated = True
     
     def show_map(self):
+        print("plotting...")
+
         fig = plt.figure()
         self.occupancy.plot(fig.number)
         plt.show()
@@ -60,15 +64,15 @@ class StochOccupancyGrid2D(object):
 
 
     def occupancy_index(self, grid_x, grid_y):
-        """Given x, y into a grid, return index into self.occupancy list."""
-        return grid_y * self.width + grid_x
+       """Given x, y into a grid, return index into self.occupancy list."""
+       return grid_y * self.width + grid_x
 
 
     def grid_index(self, index):
-        """Given index in self.occupancy list, return x, y indices in grid."""
-        x = index % self.width
-        y = index / self.width
-        return x, y
+       """Given index in self.occupancy list, return x, y indices in grid."""
+       x = index % self.width
+       y = index / self.width
+       return x, y
 
     def add_occupancy(self, window = 5):
         occupied_indices = self.probs > self.thresh
@@ -139,10 +143,16 @@ class StochOccupancyGrid2D(object):
         plt.scatter(pts_array[:,0],pts_array[:,1],color="red",zorder=15,label='planning resolution')
 
 if __name__ == '__main__':
-    mapViz = mapViz()
-    if mapViz.occupancy_updated:
-        mapViz.show_map()
-    exit(1)
+    mapViz = MapViz()
+    #rospy.spin()
+    rate = rospy.Rate(1)  # 10 Hz
+    while not rospy.is_shutdown():
+    # # don't start until we received
+        if mapViz.occupancy_updated:
+            mapViz.show_map()
+            exit(1)
+        rate.sleep()
+
 ### TESTING
 
 # # A simple example
