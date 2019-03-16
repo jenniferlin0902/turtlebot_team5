@@ -124,6 +124,10 @@ class Supervisor:
         # Command velocity (used to make robot idle).
         self.cmd_vel_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
+        # Publish state
+        self.state_publisher = rospy.Publisher('/state_machine_viz', String, queue_size=10)
+
+
         # ==========================================================================================
         # Subscribers.
 
@@ -235,6 +239,8 @@ class Supervisor:
         # this method.
         self._mode_lock.acquire()
         if self.mode != mode:
+            state_msg = "StateMachine: exiting {} --> entering {}".format(self.mode.__name__, mode.__name__)
+            self.state_publisher.publish(state_msg)
             log("StateMachine: exiting", self.mode.__name__, "--> entering", mode.__name__)
             # try:
             self.mode.exit(self)
@@ -245,8 +251,12 @@ class Supervisor:
             self.mode.enter(self)
             # except Exception as e:
             #     error("StateMachine: Got exception from enter() of {}:\n".format(self.mode.__name__, str(e)))
+            state_msg = "StateMachine: running {}".format(self.mode.__name__)
+            self.state_publisher.publish(state_msg)
             log("StateMachine: running", self.mode.__name__)
         else:
+            state_msg = "StateMachine: already running {}".format(self.mode.__name__)
+            self.state_publisher.publish(state_msg)
             log("StateMachine: already running", self.mode.__name__)
         self._mode_lock.release()
 
